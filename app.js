@@ -296,7 +296,7 @@ async function handleAdd(){
     korean = raw;
     romanized = romanize(raw);
     meaning = await translate(raw, 'ko', 'en');
-    if(!meaning){
+    if(!meaning || hasHangul(meaning)){
       meaning = '';
       flashHint('couldn\'t auto-translate — add the meaning below', true);
       openManualRow(korean, romanized, '');
@@ -306,7 +306,7 @@ async function handleAdd(){
   }else{
     meaning = raw;
     const koTranslated = await translate(raw, 'en', 'ko');
-    if(!koTranslated){
+    if(!koTranslated || !hasHangul(koTranslated)){
       flashHint('couldn\'t auto-translate — fill in korean below', true);
       openManualRow('', '', meaning);
       addBtn.disabled = false;
