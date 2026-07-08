@@ -480,6 +480,67 @@ async function shareSelected(){
   }
 }
 
+/* ===================== full backup export / import ===================== */
+const exportBackupBtn = document.getElementById('exportBackupBtn');
+const importBackupBtn = document.getElementById('importBackupBtn');
+const importFileInput = document.getElementById('importFileInput');
+
+exportBackupBtn.addEventListener('click', () => {
+  if(entries.length === 0){ showToast('nothing to back up yet'); return; }
+  const payload = {
+    app: 'koWordLog',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    entries
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `word-log-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('backup downloaded — save it somewhere safe');
+});
+
+importBackupBtn.addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const incoming = Array.isArray(data) ? data : data.entries;
+    if(!Array.isArray(incoming)) throw new Error('bad format');
+
+    const valid = incoming.filter(x => x && x.korean && x.id);
+    if(valid.length === 0) throw new Error('no valid entries');
+
+    const existingIds = new Set(entries.map(e => e.id));
+    const merged = incoming.some(x => x.id && existingIds.has(x.id)) && entries.length > 0
+      ? confirm(`found ${valid.length} entries in this backup. merge with your current ${entries.length}? cancel to replace everything instead.`)
+      : true;
+
+    if(merged){
+      valid.forEach(v => { if(!existingIds.has(v.id)) entries.push(v); });
+    }else{
+      entries = valid;
+    }
+
+    saveEntries(entries);
+    renderChips();
+    renderLog();
+    showToast(`restored ${valid.length} entries`);
+  }catch(err){
+    showToast('couldn\'t read that file — is it a word log backup?');
+  }finally{
+    importFileInput.value = '';
+  }
+});
+
 /* ===================== init ===================== */
 renderChips();
 renderLog();

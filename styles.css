@@ -187,6 +187,20 @@ input.ko{ font-family:'Noto Sans KR', sans-serif; }
   scrollbar-width:none;
 }
 .chips::-webkit-scrollbar{ display:none; }
+
+.backup-row{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  margin: -6px 0 16px;
+}
+.backup-link{
+  background:none; border:none; cursor:pointer;
+  font-size:11.5px; font-weight:500;
+  color: var(--text-faint);
+  padding:2px;
+  transition: color .12s ease;
+}
+.backup-link:hover{ color: var(--accent-2); }
+.backup-sep{ color: var(--text-faint); font-size:11px; }
 .chip{
   flex-shrink:0;
   font-size:12.5px; font-weight:500;
