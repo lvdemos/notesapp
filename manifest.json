@@ -4,8 +4,8 @@
   "description": "personal korean phrase log",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0A0C10",
-  "theme_color": "#0A0C10",
+  "background_color": "#FCFBF7",
+  "theme_color": "#58CC02",
   "icons": [
     {
       "src": "icon.png",

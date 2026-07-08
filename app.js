@@ -198,7 +198,7 @@ function buildEntryCard(entry){
   const checkedClass = selectedIds.has(entry.id) ? ' checked' : '';
   const checkboxHtml = selectMode ? `
       <div class="entry-check${checkedClass}" data-check>
-        <svg viewBox="0 0 24 24" width="12" height="12"><path d="M4 12l5 5L20 6" stroke="#04141A" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 24 24" width="12" height="12"><path d="M4 12l5 5L20 6" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>` : '';
 
   card.innerHTML = `
