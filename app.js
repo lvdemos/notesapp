@@ -128,6 +128,15 @@ const toastEl        = document.getElementById('toast');
 
 let activeCategory = 'all';
 let searchTerm = '';
+let selectMode = false;
+let selectedIds = new Set();
+
+const shareToggleBtn = document.getElementById('shareToggleBtn');
+const selectBar       = document.getElementById('selectBar');
+const selectAllBtn    = document.getElementById('selectAllBtn');
+const selectCount     = document.getElementById('selectCount');
+const cancelSelectBtn = document.getElementById('cancelSelectBtn');
+const shareSelectedBtn= document.getElementById('shareSelectedBtn');
 
 /* ===================== toast ===================== */
 let toastTimer;
@@ -164,6 +173,7 @@ function renderLog(){
 
   logList.innerHTML = '';
   countBadge.textContent = entries.length;
+  logList.classList.toggle('has-select-bar', selectMode);
 
   if(entries.length === 0){
     logList.appendChild(emptyState);
@@ -182,11 +192,18 @@ function renderLog(){
 
 function buildEntryCard(entry){
   const card = document.createElement('div');
-  card.className = 'entry';
+  card.className = 'entry' + (selectMode ? ' select-mode' : '');
   card.dataset.id = entry.id;
+
+  const checkedClass = selectedIds.has(entry.id) ? ' checked' : '';
+  const checkboxHtml = selectMode ? `
+      <div class="entry-check${checkedClass}" data-check>
+        <svg viewBox="0 0 24 24" width="12" height="12"><path d="M4 12l5 5L20 6" stroke="#04141A" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>` : '';
 
   card.innerHTML = `
     <div class="entry-top">
+      ${checkboxHtml}
       <div class="entry-main">
         <p class="ko-text">${escapeHtml(entry.korean)}</p>
         <p class="rom-text">${escapeHtml(entry.romanized)}</p>
@@ -209,9 +226,14 @@ function buildEntryCard(entry){
     </div>
   `;
 
-  card.querySelector('.speak').addEventListener('click', () => speak(entry.korean));
-  card.querySelector('.del').addEventListener('click', () => deleteEntry(entry.id));
-  card.querySelector('.edit').addEventListener('click', () => enterEditMode(card, entry));
+  if(selectMode){
+    card.querySelector('[data-check]').addEventListener('click', () => toggleSelect(entry.id));
+    card.querySelector('.entry-main').addEventListener('click', () => toggleSelect(entry.id));
+  }else{
+    card.querySelector('.speak').addEventListener('click', () => speak(entry.korean));
+    card.querySelector('.del').addEventListener('click', () => deleteEntry(entry.id));
+    card.querySelector('.edit').addEventListener('click', () => enterEditMode(card, entry));
+  }
 
   return card;
 }
@@ -368,6 +390,95 @@ searchInput.addEventListener('input', e => {
   searchTerm = e.target.value;
   renderLog();
 });
+
+/* ===================== select & share ===================== */
+function toggleSelect(id){
+  if(selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  updateSelectBar();
+  renderLog();
+}
+
+function updateSelectBar(){
+  const n = selectedIds.size;
+  selectCount.textContent = `${n} selected`;
+  shareSelectedBtn.disabled = n === 0;
+  selectAllBtn.textContent = (n === entries.length && n > 0) ? 'deselect all' : 'select all';
+}
+
+function enterSelectMode(){
+  selectMode = true;
+  selectedIds.clear();
+  shareToggleBtn.classList.add('active');
+  selectBar.hidden = false;
+  updateSelectBar();
+  renderLog();
+}
+
+function exitSelectMode(){
+  selectMode = false;
+  selectedIds.clear();
+  shareToggleBtn.classList.remove('active');
+  selectBar.hidden = true;
+  renderLog();
+}
+
+shareToggleBtn.addEventListener('click', () => {
+  if(entries.length === 0){ showToast('nothing to share yet'); return; }
+  selectMode ? exitSelectMode() : enterSelectMode();
+});
+
+cancelSelectBtn.addEventListener('click', exitSelectMode);
+
+selectAllBtn.addEventListener('click', () => {
+  if(selectedIds.size === entries.length){
+    selectedIds.clear();
+  }else{
+    entries.forEach(e => selectedIds.add(e.id));
+  }
+  updateSelectBar();
+  renderLog();
+});
+
+shareSelectedBtn.addEventListener('click', shareSelected);
+
+function buildExportText(list){
+  const lines = list.map(e => `${e.korean}  (${e.romanized})\n${e.meaning}  —  ${e.category}`);
+  const header = `단어장 — ${list.length} word${list.length === 1 ? '' : 's'} — ${new Date().toLocaleDateString()}`;
+  return `${header}\n\n${lines.join('\n\n')}`;
+}
+
+async function shareSelected(){
+  const list = entries
+    .filter(e => selectedIds.has(e.id))
+    .sort((a,b) => a.createdAt - b.createdAt);
+  if(list.length === 0) return;
+
+  const text = buildExportText(list);
+  const fileName = `korean-words-${new Date().toISOString().slice(0,10)}.txt`;
+  const file = new File([text], fileName, {type: 'text/plain'});
+
+  try{
+    if(navigator.canShare && navigator.canShare({files: [file]})){
+      await navigator.share({files: [file], title: '단어장', text: `${list.length} words from my korean log`});
+    }else if(navigator.share){
+      await navigator.share({title: '단어장', text});
+    }else{
+      await navigator.clipboard.writeText(text);
+      showToast('share not supported — copied to clipboard instead');
+    }
+    exitSelectMode();
+  }catch(err){
+    if(err.name !== 'AbortError'){
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast('share failed — copied to clipboard instead');
+      }catch(_){
+        showToast('couldn\'t share or copy');
+      }
+    }
+  }
+}
 
 /* ===================== init ===================== */
 renderChips();

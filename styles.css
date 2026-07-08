@@ -72,6 +72,64 @@ body{
   padding:4px 11px; border-radius:20px;
   min-width:28px; text-align:center;
 }
+.topbar-actions{ display:flex; align-items:center; gap:8px; }
+.icon-btn.share-toggle{
+  width:34px; height:34px; border-radius:10px;
+  background: var(--surface);
+  border:1px solid var(--border);
+  color: var(--text-dim);
+}
+.icon-btn.share-toggle.active{
+  color: var(--accent);
+  border-color: rgba(76,224,255,.4);
+  background: var(--accent-soft);
+}
+
+/* selection checkboxes on entries */
+.entry-check{
+  width:20px; height:20px; border-radius:6px;
+  border:1.6px solid var(--border);
+  background: var(--surface-2);
+  flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  margin-right:2px;
+  transition: all .12s ease;
+}
+.entry-check.checked{
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.entry-check.checked svg{ display:block; }
+.entry-check svg{ display:none; color:#04141A; }
+.entry.select-mode .entry-top{ align-items:center; }
+
+/* bottom selection bar */
+.select-bar{
+  position:fixed; left:0; right:0; bottom:0;
+  background: var(--surface);
+  border-top:1px solid var(--border);
+  padding:12px 16px calc(env(safe-area-inset-bottom,12px) + 12px);
+  display:flex; align-items:center; gap:12px;
+  z-index:40;
+  box-shadow: 0 -8px 24px rgba(0,0,0,.35);
+}
+.select-bar-link{
+  background:none; border:none; color: var(--accent);
+  font-size:13px; font-weight:600; cursor:pointer; padding:0;
+  flex-shrink:0;
+}
+.select-count{
+  flex:1; font-size:13px; color: var(--text-dim);
+}
+.select-bar-actions{ display:flex; gap:8px; }
+.select-bar-cancel, .select-bar-share{
+  border:none; border-radius:20px; padding:9px 16px;
+  font-size:13px; font-weight:600; cursor:pointer;
+}
+.select-bar-cancel{ background: var(--surface-2); color: var(--text-dim); }
+.select-bar-share{ background: var(--accent); color:#04141A; }
+.select-bar-share:disabled{ opacity:.4; cursor:default; }
 
 /* ---------- add panel ---------- */
 .add-panel{
@@ -164,6 +222,7 @@ input.ko{ font-family:'Noto Sans KR', sans-serif; }
 
 /* ---------- log entries ---------- */
 .log{ display:flex; flex-direction:column; gap:8px; }
+.log.has-select-bar{ padding-bottom:72px; }
 
 .empty-state{
   text-align:center; padding:56px 20px;

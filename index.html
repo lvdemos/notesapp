@@ -23,7 +23,12 @@
       <h1>단어장</h1>
       <span class="brand-sub">word log</span>
     </div>
-    <div class="count-badge" id="countBadge">0</div>
+    <div class="topbar-actions">
+      <button class="icon-btn share-toggle" id="shareToggleBtn" title="select & share" aria-label="select and share">
+        <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="18" cy="5" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="6" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="18" cy="19" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2" stroke="currentColor" stroke-width="1.8"/></svg>
+      </button>
+      <div class="count-badge" id="countBadge">0</div>
+    </div>
   </header>
 
   <section class="add-panel">
@@ -55,6 +60,15 @@
     </div>
   </main>
 
+</div>
+
+<div class="select-bar" id="selectBar" hidden>
+  <button id="selectAllBtn" class="select-bar-link">select all</button>
+  <span class="select-count" id="selectCount">0 selected</span>
+  <div class="select-bar-actions">
+    <button id="cancelSelectBtn" class="select-bar-cancel">cancel</button>
+    <button id="shareSelectedBtn" class="select-bar-share" disabled>share</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
