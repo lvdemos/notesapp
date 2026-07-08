@@ -12,6 +12,31 @@ function saveEntries(entries){
 }
 let entries = loadEntries();
 
+/* ===================== settings ===================== */
+const SETTINGS_KEY = 'koWordLog.settings.v1';
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? {...{theme:'auto', sort:'newest'}, ...JSON.parse(raw)} : {theme:'auto', sort:'newest'};
+  }catch(e){ return {theme:'auto', sort:'newest'}; }
+}
+function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+let settings = loadSettings();
+
+function applyTheme(){
+  let actual = settings.theme;
+  if(actual === 'auto'){
+    actual = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', actual);
+}
+applyTheme();
+if(window.matchMedia){
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if(settings.theme === 'auto') applyTheme();
+  });
+}
+
 /* ===================== hangul detection ===================== */
 function hasHangul(str){
   return /[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7A3]/.test(str);
@@ -169,7 +194,15 @@ function renderLog(){
     const s = searchTerm.toLowerCase();
     const matchesSearch = !s || e.korean.toLowerCase().includes(s) || e.romanized.toLowerCase().includes(s) || e.meaning.toLowerCase().includes(s);
     return matchesCat && matchesSearch;
-  }).sort((a,b) => b.createdAt - a.createdAt);
+  }).sort((a,b) => {
+    switch(settings.sort){
+      case 'oldest':   return a.createdAt - b.createdAt;
+      case 'az':       return a.korean.localeCompare(b.korean, 'ko');
+      case 'category': return a.category.localeCompare(b.category) || (b.createdAt - a.createdAt);
+      case 'newest':
+      default:         return b.createdAt - a.createdAt;
+    }
+  });
 
   logList.innerHTML = '';
   countBadge.textContent = entries.length;
@@ -539,6 +572,62 @@ importFileInput.addEventListener('change', async (e) => {
   }finally{
     importFileInput.value = '';
   }
+});
+
+/* ===================== settings modal ===================== */
+const settingsBtn      = document.getElementById('settingsBtn');
+const settingsOverlay  = document.getElementById('settingsOverlay');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const themeSegment     = document.getElementById('themeSegment');
+const sortSegment      = document.getElementById('sortSegment');
+const clearAllBtn      = document.getElementById('clearAllBtn');
+
+function openSettings(){
+  settingsOverlay.hidden = false;
+  settingsBtn.classList.add('active');
+  syncSegment(themeSegment, settings.theme);
+  syncSegment(sortSegment, settings.sort);
+}
+function closeSettings(){
+  settingsOverlay.hidden = true;
+  settingsBtn.classList.remove('active');
+}
+function syncSegment(segEl, value){
+  segEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.val === value));
+}
+
+settingsBtn.addEventListener('click', openSettings);
+closeSettingsBtn.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e) => { if(e.target === settingsOverlay) closeSettings(); });
+
+themeSegment.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  settings.theme = btn.dataset.val;
+  saveSettings();
+  applyTheme();
+  syncSegment(themeSegment, settings.theme);
+});
+
+sortSegment.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  settings.sort = btn.dataset.val;
+  saveSettings();
+  syncSegment(sortSegment, settings.sort);
+  renderLog();
+});
+
+clearAllBtn.addEventListener('click', () => {
+  if(entries.length === 0){ showToast('already empty'); return; }
+  const ok = confirm(`delete all ${entries.length} entries? this can't be undone unless you have a backup file.`);
+  if(!ok) return;
+  entries = [];
+  saveEntries(entries);
+  renderChips();
+  renderLog();
+  closeSettings();
+  showToast('everything cleared');
 });
 
 /* ===================== init ===================== */

@@ -24,6 +24,9 @@
       <span class="brand-sub">word log</span>
     </div>
     <div class="topbar-actions">
+      <button class="icon-btn settings-toggle" id="settingsBtn" title="settings" aria-label="settings">
+        <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M19.4 13a7.6 7.6 0 000-2l2-1.5-2-3.4-2.3.9a7.7 7.7 0 00-1.7-1L15 3.6h-6l-.4 2.4a7.7 7.7 0 00-1.7 1l-2.3-.9-2 3.4L4.6 11a7.6 7.6 0 000 2l-2 1.5 2 3.4 2.3-.9a7.7 7.7 0 001.7 1L9 20.4h6l.4-2.4a7.7 7.7 0 001.7-1l2.3.9 2-3.4-2-1.5z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg>
+      </button>
       <button class="icon-btn share-toggle" id="shareToggleBtn" title="select & share" aria-label="select and share">
         <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="18" cy="5" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="6" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="18" cy="19" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8.6 10.6l6.8-4.2M8.6 13.4l6.8 4.2" stroke="currentColor" stroke-width="1.8"/></svg>
       </button>
@@ -48,13 +51,6 @@
 
   <nav class="chips" id="categoryChips"></nav>
 
-  <div class="backup-row">
-    <button id="exportBackupBtn" class="backup-link">export backup</button>
-    <span class="backup-sep">·</span>
-    <button id="importBackupBtn" class="backup-link">restore backup</button>
-    <input type="file" id="importFileInput" accept="application/json" hidden>
-  </div>
-
   <div class="search-row">
     <svg viewBox="0 0 24 24" width="16" height="16" class="search-icon"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     <input id="searchInput" type="text" placeholder="search your log">
@@ -75,6 +71,50 @@
   <div class="select-bar-actions">
     <button id="cancelSelectBtn" class="select-bar-cancel">cancel</button>
     <button id="shareSelectedBtn" class="select-bar-share" disabled>share</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay" hidden>
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h2>settings</h2>
+      <button class="icon-btn" id="closeSettingsBtn" aria-label="close">
+        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 5l14 14M19 5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="setting-block">
+      <span class="setting-label">appearance</span>
+      <div class="segmented" id="themeSegment" data-value="auto">
+        <button data-val="light">light</button>
+        <button data-val="dark">dark</button>
+        <button data-val="auto">auto</button>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <span class="setting-label">sort log by</span>
+      <div class="segmented" id="sortSegment" data-value="newest">
+        <button data-val="newest">newest</button>
+        <button data-val="oldest">oldest</button>
+        <button data-val="az">가나다</button>
+        <button data-val="category">category</button>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <span class="setting-label">your data</span>
+      <div class="setting-row-buttons">
+        <button class="setting-btn" id="exportBackupBtn">export backup</button>
+        <button class="setting-btn" id="importBackupBtn">restore backup</button>
+      </div>
+      <input type="file" id="importFileInput" accept="application/json" hidden>
+    </div>
+
+    <div class="setting-block danger-block">
+      <span class="setting-label">danger zone</span>
+      <button class="setting-btn danger-btn" id="clearAllBtn">clear all entries</button>
+    </div>
   </div>
 </div>
 
