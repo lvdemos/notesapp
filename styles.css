@@ -480,3 +480,162 @@ select.cat-select{
   color: var(--danger);
 }
 .danger-btn:hover{ background: var(--danger); color:#fff; border-color: var(--danger); }
+
+/* ---------- tab bar ---------- */
+.tabbar{
+  display:flex; gap:6px;
+  background: var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:4px;
+  margin-bottom:16px;
+}
+.tab{
+  flex:1; position:relative;
+  border:none; background:none;
+  padding:10px; border-radius:11px;
+  font-size:13.5px; font-weight:700;
+  color: var(--text-dim);
+  cursor:pointer;
+  font-family:'Inter', sans-serif;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  transition: all .15s ease;
+}
+.tab.active{
+  background: var(--surface);
+  color: var(--accent-dark);
+  box-shadow: 0 1px 5px rgba(60,59,55,.10);
+}
+.due-dot{
+  width:7px; height:7px; border-radius:50%;
+  background: var(--warm);
+  display:inline-block;
+}
+
+/* ---------- train setup ---------- */
+.train-setup{
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:20px 18px;
+  text-align:center;
+}
+.train-lead{
+  font-family:'Baloo 2', sans-serif;
+  font-size:19px; margin:2px 0 4px; color:var(--text);
+}
+.train-sub{
+  font-size:13px; color: var(--text-dim); margin:0 0 18px;
+}
+.train-setup .setting-block{ text-align:left; }
+.btn-start-train{
+  width:100%; margin-top:8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border:none; border-radius:14px;
+  padding:14px; font-size:15px; font-weight:700;
+  cursor:pointer;
+  font-family:'Baloo 2', sans-serif;
+  transition: background .12s ease, transform .1s ease;
+}
+.btn-start-train:hover{ background: var(--accent-dark); }
+.btn-start-train:active{ transform: scale(.98); }
+
+/* ---------- train session ---------- */
+.train-progress-row{
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:16px;
+}
+.train-progress-bar{
+  flex:1; height:7px; border-radius:6px;
+  background: var(--surface-2);
+  overflow:hidden;
+}
+.train-progress-fill{
+  height:100%; background: var(--accent);
+  border-radius:6px; transition: width .25s ease;
+  width:0%;
+}
+.train-progress-text{
+  font-size:12px; font-weight:700; color: var(--text-faint);
+  flex-shrink:0;
+}
+
+.flash-card{
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius: 20px;
+  padding:38px 22px;
+  text-align:center;
+  margin-bottom:14px;
+  min-height:150px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  box-shadow: 0 3px 14px rgba(60,59,55,.06);
+  animation: rise .25s ease;
+}
+.flash-tag{
+  font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color: var(--accent-2);
+  background: var(--accent-2-soft);
+  padding:4px 11px; border-radius:20px;
+  margin-bottom:16px;
+}
+.flash-prompt{
+  font-family:'Noto Sans KR', sans-serif;
+  font-size:28px; font-weight:700; color: var(--text);
+  margin:0; word-break: break-word;
+}
+.flash-sub{
+  font-size:13px; color: var(--text-faint); margin:8px 0 0;
+}
+
+.train-answer-row{
+  display:flex; gap:8px;
+}
+.train-answer-row input{
+  font-size:16px;
+}
+
+.train-feedback{
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:16px;
+  margin-top:14px;
+  text-align:center;
+  animation: rise .2s ease;
+}
+.feedback-verdict{
+  font-family:'Baloo 2', sans-serif;
+  font-size:17px; margin:0 0 6px;
+}
+.feedback-verdict.correct{ color: var(--accent-dark); }
+.feedback-verdict.almost{ color: var(--warm); }
+.feedback-verdict.wrong{ color: var(--danger); }
+.feedback-answer{
+  font-size:14px; color: var(--text-dim); margin:0 0 14px;
+}
+.feedback-answer .ko{ font-family:'Noto Sans KR', sans-serif; font-weight:600; color:var(--text); }
+.btn-continue{
+  width:100%; background: var(--accent); color: var(--on-accent);
+  border:none; border-radius:12px; padding:12px;
+  font-size:14px; font-weight:700; cursor:pointer;
+  font-family:'Baloo 2', sans-serif;
+}
+
+/* ---------- train summary ---------- */
+.train-summary{
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:28px 20px;
+  text-align:center;
+}
+.summary-headline{
+  font-family:'Baloo 2', sans-serif;
+  font-size:21px; margin:0 0 6px; color: var(--text);
+}
+.summary-sub{ font-size:13.5px; color: var(--text-dim); margin:0 0 20px; }
+.summary-actions{ display:flex; gap:10px; }
+.summary-actions .setting-btn{ flex:1; }
+.summary-actions .btn-start-train{ flex:1; margin-top:0; }

@@ -11,6 +11,18 @@ function saveEntries(entries){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 let entries = loadEntries();
+migrateSrs();
+
+function migrateSrs(){
+  let changed = false;
+  entries.forEach(e => {
+    if(!e.srs){
+      e.srs = { box: 0, dueAt: e.createdAt || Date.now(), correct: 0, wrong: 0 };
+      changed = true;
+    }
+  });
+  if(changed) saveEntries(entries);
+}
 
 /* ===================== settings ===================== */
 const SETTINGS_KEY = 'koWordLog.settings.v1';
@@ -310,6 +322,7 @@ function deleteEntry(id){
   saveEntries(entries);
   renderChips();
   renderLog();
+  updateDueDot();
   showToast('deleted');
 }
 
@@ -401,7 +414,8 @@ function commitEntry(korean, romanized, meaning){
   const entry = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
     korean, romanized, meaning, category,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    srs: { box: 0, dueAt: Date.now(), correct: 0, wrong: 0 }
   };
   entries.push(entry);
   saveEntries(entries);
@@ -410,6 +424,7 @@ function commitEntry(korean, romanized, meaning){
   flashHint(`added to ${category}`, false, true);
   renderChips();
   renderLog();
+  updateDueDot();
 }
 
 function flashHint(msg, isError, isOk){
@@ -564,8 +579,10 @@ importFileInput.addEventListener('change', async (e) => {
     }
 
     saveEntries(entries);
+    migrateSrs();
     renderChips();
     renderLog();
+    updateDueDot();
     showToast(`restored ${valid.length} entries`);
   }catch(err){
     showToast('couldn\'t read that file — is it a word log backup?');
@@ -626,10 +643,277 @@ clearAllBtn.addEventListener('click', () => {
   saveEntries(entries);
   renderChips();
   renderLog();
+  updateDueDot();
   closeSettings();
   showToast('everything cleared');
 });
 
+/* ===================== tabs ===================== */
+const tabLogBtn   = document.getElementById('tabLogBtn');
+const tabTrainBtn = document.getElementById('tabTrainBtn');
+const logView     = document.getElementById('logView');
+const trainView   = document.getElementById('trainView');
+const dueDot      = document.getElementById('dueDot');
+
+function switchTab(tab){
+  const isLog = tab === 'log';
+  logView.hidden = !isLog;
+  trainView.hidden = isLog;
+  tabLogBtn.classList.toggle('active', isLog);
+  tabTrainBtn.classList.toggle('active', !isLog);
+  if(!isLog) resetTrainSetupView();
+}
+tabLogBtn.addEventListener('click', () => switchTab('log'));
+tabTrainBtn.addEventListener('click', () => switchTab('train'));
+
+function countDue(){
+  const now = Date.now();
+  return entries.filter(e => e.srs && e.srs.dueAt <= now).length;
+}
+function updateDueDot(){
+  dueDot.hidden = countDue() === 0;
+}
+
+/* ===================== grading helpers ===================== */
+function normalizeEn(str){
+  return str.toLowerCase().trim().replace(/[.,!?;:'"()]/g, '').replace(/\s+/g, ' ');
+}
+function normalizeKo(str){
+  return str.trim().replace(/\s+/g, '');
+}
+function levenshtein(a, b){
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+  for(let i=0;i<=m;i++) dp[i][0] = i;
+  for(let j=0;j<=n;j++) dp[0][j] = j;
+  for(let i=1;i<=m;i++){
+    for(let j=1;j<=n;j++){
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+function gradeAnswer(userRaw, correctRaw, isKorean){
+  if(!userRaw.trim()) return 'wrong';
+  if(isKorean){
+    const user = normalizeKo(userRaw);
+    const correct = normalizeKo(correctRaw);
+    if(user === correct) return 'correct';
+    if(levenshtein(user, correct) <= 1) return 'almost';
+    return 'wrong';
+  }else{
+    const user = normalizeEn(userRaw);
+    const variants = correctRaw.split(/[\/,;]/).map(normalizeEn).filter(Boolean);
+    if(variants.includes(user)) return 'correct';
+    let bestDist = Infinity;
+    variants.forEach(v => { bestDist = Math.min(bestDist, levenshtein(user, v)); });
+    const shortest = Math.min(...variants.map(v => v.length));
+    const threshold = shortest <= 4 ? 1 : Math.floor(shortest / 5) + 1;
+    if(bestDist <= threshold) return 'almost';
+    return 'wrong';
+  }
+}
+
+/* ===================== spaced repetition ===================== */
+const BOX_INTERVALS = [0, 86400000, 3*86400000, 7*86400000, 16*86400000, 30*86400000];
+function applySrsResult(entry, verdict){
+  entry.srs = entry.srs || { box:0, dueAt: Date.now(), correct:0, wrong:0 };
+  if(verdict === 'wrong'){
+    entry.srs.box = 0;
+    entry.srs.dueAt = Date.now();
+    entry.srs.wrong++;
+  }else{
+    entry.srs.box = Math.min(entry.srs.box + 1, BOX_INTERVALS.length - 1);
+    entry.srs.dueAt = Date.now() + BOX_INTERVALS[entry.srs.box];
+    entry.srs.correct++;
+  }
+}
+
+/* ===================== training session ===================== */
+const trainSetup       = document.getElementById('trainSetup');
+const trainSessionEl   = document.getElementById('trainSession');
+const trainSummaryEl   = document.getElementById('trainSummary');
+const trainLead        = document.getElementById('trainLead');
+const trainSub         = document.getElementById('trainSub');
+const dirSegment       = document.getElementById('dirSegment');
+const sizeSegment      = document.getElementById('sizeSegment');
+const startTrainBtn    = document.getElementById('startTrainBtn');
+const trainProgressFill= document.getElementById('trainProgressFill');
+const trainProgressText= document.getElementById('trainProgressText');
+const flashTag         = document.getElementById('flashTag');
+const flashPrompt      = document.getElementById('flashPrompt');
+const flashSub         = document.getElementById('flashSub');
+const trainAnswerForm  = document.getElementById('trainAnswerForm');
+const trainAnswerInput = document.getElementById('trainAnswerInput');
+const trainFeedback    = document.getElementById('trainFeedback');
+const feedbackVerdict  = document.getElementById('feedbackVerdict');
+const feedbackAnswer   = document.getElementById('feedbackAnswer');
+const continueBtn      = document.getElementById('continueBtn');
+const summaryHeadline  = document.getElementById('summaryHeadline');
+const summarySub       = document.getElementById('summarySub');
+const backToLogBtn     = document.getElementById('backToLogBtn');
+const trainAgainBtn    = document.getElementById('trainAgainBtn');
+
+let trainPrefs = { dir: 'mixed', size: '10' };
+let session = null; // { queue:[{id,direction}], index, correct, almost, wrong, total }
+
+function resetTrainSetupView(){
+  trainSetup.hidden = false;
+  trainSessionEl.hidden = true;
+  trainSummaryEl.hidden = true;
+  const due = countDue();
+  trainLead.textContent = entries.length === 0 ? 'nothing to train yet' : 'ready to drill your log';
+  trainSub.textContent = entries.length === 0
+    ? 'add a few words first'
+    : `${due} due for review · ${entries.length} words total`;
+  startTrainBtn.disabled = entries.length === 0;
+  startTrainBtn.style.opacity = entries.length === 0 ? .5 : 1;
+}
+
+dirSegment.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  trainPrefs.dir = btn.dataset.val;
+  syncSegment(dirSegment, btn.dataset.val);
+});
+sizeSegment.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  trainPrefs.size = btn.dataset.val;
+  syncSegment(sizeSegment, btn.dataset.val);
+});
+
+startTrainBtn.addEventListener('click', () => {
+  if(entries.length === 0) return;
+  startSession();
+});
+
+function buildSessionQueue(size){
+  const now = Date.now();
+  const due  = entries.filter(e => e.srs.dueAt <= now).sort((a,b) => a.srs.dueAt - b.srs.dueAt);
+  const rest = entries.filter(e => e.srs.dueAt > now).sort((a,b) => a.srs.dueAt - b.srs.dueAt);
+  let pool = due.concat(rest);
+  if(size !== 'all') pool = pool.slice(0, Math.min(parseInt(size, 10), pool.length));
+  return pool.map(e => ({ id: e.id, direction: pickDirection() }));
+}
+function pickDirection(){
+  if(trainPrefs.dir === 'mixed') return Math.random() < 0.5 ? 'ko-en' : 'en-ko';
+  return trainPrefs.dir;
+}
+
+function startSession(){
+  const queue = buildSessionQueue(trainPrefs.size);
+  session = { queue, index: 0, correct: 0, almost: 0, wrong: 0, total: queue.length, requeued: {} };
+  trainSetup.hidden = true;
+  trainSummaryEl.hidden = true;
+  trainSessionEl.hidden = false;
+  showCard();
+}
+
+function currentEntry(){
+  const item = session.queue[session.index];
+  if(!item) return null;
+  const entry = entries.find(e => e.id === item.id);
+  return entry ? { entry, direction: item.direction } : null;
+}
+
+function showCard(){
+  trainFeedback.hidden = true;
+  trainAnswerInput.value = '';
+  trainAnswerInput.disabled = false;
+
+  const cur = currentEntry();
+  if(!cur){ finishSession(); return; }
+  const { entry, direction } = cur;
+
+  const pct = Math.round((session.index / session.total) * 100);
+  trainProgressFill.style.width = pct + '%';
+  trainProgressText.textContent = `${session.index + 1} / ${session.total}`;
+
+  if(direction === 'ko-en'){
+    flashTag.textContent = '한국어 → english';
+    flashPrompt.className = 'flash-prompt';
+    flashPrompt.style.fontFamily = "'Noto Sans KR', sans-serif";
+    flashPrompt.textContent = entry.korean;
+    flashSub.textContent = entry.romanized || '';
+    trainAnswerInput.placeholder = 'type the english meaning';
+  }else{
+    flashTag.textContent = 'english → 한국어';
+    flashPrompt.style.fontFamily = "'Inter', sans-serif";
+    flashPrompt.textContent = entry.meaning;
+    flashSub.textContent = '';
+    trainAnswerInput.placeholder = 'type it in korean';
+  }
+  setTimeout(() => trainAnswerInput.focus(), 50);
+}
+
+trainAnswerForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const cur = currentEntry();
+  if(!cur) return;
+  const { entry, direction } = cur;
+  const isKorean = direction === 'en-ko';
+  const correctRaw = isKorean ? entry.korean : entry.meaning;
+  const verdict = gradeAnswer(trainAnswerInput.value, correctRaw, isKorean);
+
+  applySrsResult(entry, verdict);
+  saveEntries(entries);
+
+  if(verdict === 'correct') session.correct++;
+  else if(verdict === 'almost') session.almost++;
+  else session.wrong++;
+
+  if(verdict === 'wrong'){
+    const key = session.queue[session.index].id;
+    const timesRequeued = session.requeued[key] || 0;
+    if(timesRequeued < 1){
+      session.requeued[key] = timesRequeued + 1;
+      session.queue.push({ id: entry.id, direction });
+      session.total++;
+    }
+  }
+
+  trainAnswerInput.disabled = true;
+  trainFeedback.hidden = false;
+  feedbackVerdict.className = 'feedback-verdict ' + verdict;
+  feedbackVerdict.textContent = verdict === 'correct' ? 'nice, correct'
+    : verdict === 'almost' ? 'close enough — small typo'
+    : 'not quite';
+
+  if(verdict === 'correct'){
+    feedbackAnswer.innerHTML = '';
+  }else{
+    feedbackAnswer.innerHTML = isKorean
+      ? `correct answer: <span class="ko">${escapeHtml(entry.korean)}</span> (${escapeHtml(entry.romanized)})`
+      : `correct answer: <strong>${escapeHtml(entry.meaning)}</strong>`;
+  }
+
+  continueBtn.focus();
+});
+
+continueBtn.addEventListener('click', () => {
+  session.index++;
+  showCard();
+});
+
+function finishSession(){
+  trainSessionEl.hidden = true;
+  trainSummaryEl.hidden = false;
+  const attempted = session.correct + session.almost + session.wrong;
+  const pct = attempted ? Math.round(((session.correct + session.almost) / attempted) * 100) : 0;
+  summaryHeadline.textContent = pct >= 80 ? 'solid run 🌱' : pct >= 50 ? 'decent, keep going' : 'rough one — that\'s fine';
+  summarySub.textContent = `${session.correct} correct · ${session.almost} close · ${session.wrong} missed`;
+  updateDueDot();
+}
+
+backToLogBtn.addEventListener('click', () => switchTab('log'));
+trainAgainBtn.addEventListener('click', () => { resetTrainSetupView(); });
+
 /* ===================== init ===================== */
+updateDueDot();
 renderChips();
 renderLog();

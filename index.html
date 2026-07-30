@@ -34,34 +34,108 @@
     </div>
   </header>
 
-  <section class="add-panel">
-    <div class="field-row">
-      <input id="phraseInput" type="text" placeholder="type a phrase — korean or english" autocomplete="off" spellcheck="false">
-      <button id="addBtn" class="btn-primary" aria-label="add phrase">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-      </button>
+  <nav class="tabbar">
+    <button class="tab active" id="tabLogBtn" data-tab="log">your log</button>
+    <button class="tab" id="tabTrainBtn" data-tab="train">
+      train
+      <span class="due-dot" id="dueDot" hidden></span>
+    </button>
+  </nav>
+
+  <section id="logView">
+    <section class="add-panel">
+      <div class="field-row">
+        <input id="phraseInput" type="text" placeholder="type a phrase — korean or english" autocomplete="off" spellcheck="false">
+        <button id="addBtn" class="btn-primary" aria-label="add phrase">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="field-row secondary" id="manualRow" hidden>
+        <input id="meaningInput" type="text" placeholder="english meaning">
+        <input id="koreanInput" type="text" placeholder="한국어" class="ko">
+        <input id="romInput" type="text" placeholder="romanization">
+      </div>
+      <div class="hint" id="statusHint">enter a word or phrase and hit add</div>
+    </section>
+
+    <nav class="chips" id="categoryChips"></nav>
+
+    <div class="search-row">
+      <svg viewBox="0 0 24 24" width="16" height="16" class="search-icon"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="searchInput" type="text" placeholder="search your log">
     </div>
-    <div class="field-row secondary" id="manualRow" hidden>
-      <input id="meaningInput" type="text" placeholder="english meaning">
-      <input id="koreanInput" type="text" placeholder="한국어" class="ko">
-      <input id="romInput" type="text" placeholder="romanization">
-    </div>
-    <div class="hint" id="statusHint">enter a word or phrase and hit add</div>
+
+    <main class="log" id="logList">
+      <div class="empty-state" id="emptyState">
+        <p>nothing logged yet</p>
+        <span>whatever you learn goes here</span>
+      </div>
+    </main>
   </section>
 
-  <nav class="chips" id="categoryChips"></nav>
+  <section id="trainView" hidden>
 
-  <div class="search-row">
-    <svg viewBox="0 0 24 24" width="16" height="16" class="search-icon"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <input id="searchInput" type="text" placeholder="search your log">
-  </div>
+    <div class="train-setup" id="trainSetup">
+      <p class="train-lead" id="trainLead">ready to drill your log</p>
+      <p class="train-sub" id="trainSub"></p>
 
-  <main class="log" id="logList">
-    <div class="empty-state" id="emptyState">
-      <p>nothing logged yet</p>
-      <span>whatever you learn goes here</span>
+      <div class="setting-block">
+        <span class="setting-label">direction</span>
+        <div class="segmented" id="dirSegment">
+          <button data-val="mixed" class="active">mixed</button>
+          <button data-val="ko-en">한국어→en</button>
+          <button data-val="en-ko">en→한국어</button>
+        </div>
+      </div>
+
+      <div class="setting-block">
+        <span class="setting-label">session size</span>
+        <div class="segmented" id="sizeSegment">
+          <button data-val="10" class="active">10</button>
+          <button data-val="20">20</button>
+          <button data-val="all">all</button>
+        </div>
+      </div>
+
+      <button class="btn-start-train" id="startTrainBtn">start training</button>
     </div>
-  </main>
+
+    <div class="train-session" id="trainSession" hidden>
+      <div class="train-progress-row">
+        <div class="train-progress-bar"><div class="train-progress-fill" id="trainProgressFill"></div></div>
+        <span class="train-progress-text" id="trainProgressText">1 / 10</span>
+      </div>
+
+      <div class="flash-card" id="flashCard">
+        <span class="flash-tag" id="flashTag">한국어 → english</span>
+        <p class="flash-prompt" id="flashPrompt">안녕하세요</p>
+        <p class="flash-sub" id="flashSub"></p>
+      </div>
+
+      <form class="train-answer-row" id="trainAnswerForm">
+        <input type="text" id="trainAnswerInput" placeholder="type your answer" autocomplete="off" spellcheck="false">
+        <button type="submit" class="btn-primary" aria-label="submit answer">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
+
+      <div class="train-feedback" id="trainFeedback" hidden>
+        <p class="feedback-verdict" id="feedbackVerdict"></p>
+        <p class="feedback-answer" id="feedbackAnswer"></p>
+        <button class="btn-continue" id="continueBtn">continue</button>
+      </div>
+    </div>
+
+    <div class="train-summary" id="trainSummary" hidden>
+      <p class="summary-headline" id="summaryHeadline"></p>
+      <p class="summary-sub" id="summarySub"></p>
+      <div class="summary-actions">
+        <button class="setting-btn" id="backToLogBtn">back to log</button>
+        <button class="btn-start-train" id="trainAgainBtn">train again</button>
+      </div>
+    </div>
+
+  </section>
 
 </div>
 
