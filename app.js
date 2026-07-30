@@ -29,8 +29,8 @@ const SETTINGS_KEY = 'koWordLog.settings.v1';
 function loadSettings(){
   try{
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? {...{theme:'auto', sort:'newest'}, ...JSON.parse(raw)} : {theme:'auto', sort:'newest'};
-  }catch(e){ return {theme:'auto', sort:'newest'}; }
+    return raw ? {...{theme:'auto', sort:'newest', dailyGoal:10}, ...JSON.parse(raw)} : {theme:'auto', sort:'newest', dailyGoal:10};
+  }catch(e){ return {theme:'auto', sort:'newest', dailyGoal:10}; }
 }
 function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
 let settings = loadSettings();
@@ -597,6 +597,7 @@ const settingsOverlay  = document.getElementById('settingsOverlay');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const themeSegment     = document.getElementById('themeSegment');
 const sortSegment      = document.getElementById('sortSegment');
+const goalSegment      = document.getElementById('goalSegment');
 const clearAllBtn      = document.getElementById('clearAllBtn');
 
 function openSettings(){
@@ -604,6 +605,7 @@ function openSettings(){
   settingsBtn.classList.add('active');
   syncSegment(themeSegment, settings.theme);
   syncSegment(sortSegment, settings.sort);
+  syncSegment(goalSegment, String(settings.dailyGoal));
 }
 function closeSettings(){
   settingsOverlay.hidden = true;
@@ -633,6 +635,15 @@ sortSegment.addEventListener('click', (e) => {
   saveSettings();
   syncSegment(sortSegment, settings.sort);
   renderLog();
+});
+
+goalSegment.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  settings.dailyGoal = parseInt(btn.dataset.val, 10);
+  saveSettings();
+  syncSegment(goalSegment, String(settings.dailyGoal));
+  renderDaily();
 });
 
 clearAllBtn.addEventListener('click', () => {
@@ -718,19 +729,96 @@ function gradeAnswer(userRaw, correctRaw, isKorean){
   }
 }
 
-/* ===================== spaced repetition ===================== */
+/* ===================== spaced repetition (anki-style ratings) ===================== */
 const BOX_INTERVALS = [0, 86400000, 3*86400000, 7*86400000, 16*86400000, 30*86400000];
-function applySrsResult(entry, verdict){
+const MAX_BOX = BOX_INTERVALS.length - 1;
+
+function applySrsRating(entry, rating){
   entry.srs = entry.srs || { box:0, dueAt: Date.now(), correct:0, wrong:0 };
-  if(verdict === 'wrong'){
-    entry.srs.box = 0;
-    entry.srs.dueAt = Date.now();
-    entry.srs.wrong++;
-  }else{
-    entry.srs.box = Math.min(entry.srs.box + 1, BOX_INTERVALS.length - 1);
-    entry.srs.dueAt = Date.now() + BOX_INTERVALS[entry.srs.box];
-    entry.srs.correct++;
+  const now = Date.now();
+  switch(rating){
+    case 'again':
+      entry.srs.box = 0;
+      entry.srs.dueAt = now;
+      entry.srs.wrong++;
+      break;
+    case 'hard':
+      entry.srs.box = Math.max(entry.srs.box, 1);
+      entry.srs.dueAt = now + Math.max(BOX_INTERVALS[entry.srs.box] * 0.5, 4*3600000);
+      entry.srs.correct++;
+      break;
+    case 'easy':
+      entry.srs.box = Math.min(entry.srs.box + 2, MAX_BOX);
+      entry.srs.dueAt = now + BOX_INTERVALS[entry.srs.box] * 1.3;
+      entry.srs.correct++;
+      break;
+    case 'good':
+    default:
+      entry.srs.box = Math.min(entry.srs.box + 1, MAX_BOX);
+      entry.srs.dueAt = now + BOX_INTERVALS[entry.srs.box];
+      entry.srs.correct++;
   }
+}
+// verdict from typed-answer grading -> suggested rating
+const VERDICT_TO_RATING = { correct: 'good', almost: 'hard', wrong: 'again' };
+
+/* ===================== streak ===================== */
+const STREAK_KEY = 'koWordLog.streak.v1';
+const streakCountEl = document.getElementById('streakCount');
+function loadStreak(){
+  try{
+    const raw = localStorage.getItem(STREAK_KEY);
+    return raw ? JSON.parse(raw) : { count: 0, lastDate: null };
+  }catch(e){ return { count: 0, lastDate: null }; }
+}
+function saveStreak(){ localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); }
+let streak = loadStreak();
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function yesterdayStr(){
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0,10);
+}
+function bumpStreak(){
+  const today = todayStr();
+  if(streak.lastDate === today) return;
+  streak.count = (streak.lastDate === yesterdayStr()) ? streak.count + 1 : 1;
+  streak.lastDate = today;
+  saveStreak();
+  renderStreak();
+}
+function renderStreak(){
+  // if the streak's last active day isn't today or yesterday, it's effectively broken — show 0
+  const today = todayStr();
+  const display = (streak.lastDate === today || streak.lastDate === yesterdayStr()) ? streak.count : 0;
+  streakCountEl.textContent = display;
+}
+
+/* ===================== daily goal progress ===================== */
+const DAILY_KEY = 'koWordLog.daily.v1';
+const dailyProgressFill = document.getElementById('dailyProgressFill');
+const dailyProgressText = document.getElementById('dailyProgressText');
+function loadDaily(){
+  try{
+    const raw = localStorage.getItem(DAILY_KEY);
+    const d = raw ? JSON.parse(raw) : { date: todayStr(), count: 0 };
+    if(d.date !== todayStr()) return { date: todayStr(), count: 0 };
+    return d;
+  }catch(e){ return { date: todayStr(), count: 0 }; }
+}
+function saveDaily(){ localStorage.setItem(DAILY_KEY, JSON.stringify(daily)); }
+let daily = loadDaily();
+function bumpDaily(){
+  if(daily.date !== todayStr()) daily = { date: todayStr(), count: 0 };
+  daily.count++;
+  saveDaily();
+  renderDaily();
+}
+function renderDaily(){
+  const goal = settings.dailyGoal || 10;
+  const pct = Math.min(100, Math.round((daily.count / goal) * 100));
+  dailyProgressFill.style.width = pct + '%';
+  dailyProgressText.textContent = `${daily.count} / ${goal}`;
 }
 
 /* ===================== training session ===================== */
@@ -744,22 +832,23 @@ const sizeSegment      = document.getElementById('sizeSegment');
 const startTrainBtn    = document.getElementById('startTrainBtn');
 const trainProgressFill= document.getElementById('trainProgressFill');
 const trainProgressText= document.getElementById('trainProgressText');
+const shuffleBtn       = document.getElementById('shuffleBtn');
 const flashTag         = document.getElementById('flashTag');
 const flashPrompt      = document.getElementById('flashPrompt');
 const flashSub         = document.getElementById('flashSub');
+const flashReveal      = document.getElementById('flashReveal');
+const revealAnswer     = document.getElementById('revealAnswer');
+const revealNote       = document.getElementById('revealNote');
 const trainAnswerForm  = document.getElementById('trainAnswerForm');
 const trainAnswerInput = document.getElementById('trainAnswerInput');
-const trainFeedback    = document.getElementById('trainFeedback');
-const feedbackVerdict  = document.getElementById('feedbackVerdict');
-const feedbackAnswer   = document.getElementById('feedbackAnswer');
-const continueBtn      = document.getElementById('continueBtn');
+const ratingRow        = document.getElementById('ratingRow');
 const summaryHeadline  = document.getElementById('summaryHeadline');
 const summarySub       = document.getElementById('summarySub');
 const backToLogBtn     = document.getElementById('backToLogBtn');
 const trainAgainBtn    = document.getElementById('trainAgainBtn');
 
-let trainPrefs = { dir: 'mixed', size: '10' };
-let session = null; // { queue:[{id,direction}], index, correct, almost, wrong, total }
+let trainPrefs = { dir: 'mixed', size: '10', shuffle: false };
+let session = null; // { queue:[{id,direction}], index, tally:{again,hard,good,easy}, total, requeued }
 
 function resetTrainSetupView(){
   trainSetup.hidden = false;
@@ -786,6 +875,20 @@ sizeSegment.addEventListener('click', (e) => {
   trainPrefs.size = btn.dataset.val;
   syncSegment(sizeSegment, btn.dataset.val);
 });
+shuffleBtn.addEventListener('click', () => {
+  trainPrefs.shuffle = !trainPrefs.shuffle;
+  shuffleBtn.classList.toggle('active', trainPrefs.shuffle);
+  if(session) shuffleRemainingQueue();
+});
+function shuffleRemainingQueue(){
+  const head = session.queue.slice(0, session.index + 1);
+  const tail = session.queue.slice(session.index + 1);
+  for(let i = tail.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [tail[i], tail[j]] = [tail[j], tail[i]];
+  }
+  session.queue = head.concat(tail);
+}
 
 startTrainBtn.addEventListener('click', () => {
   if(entries.length === 0) return;
@@ -798,6 +901,12 @@ function buildSessionQueue(size){
   const rest = entries.filter(e => e.srs.dueAt > now).sort((a,b) => a.srs.dueAt - b.srs.dueAt);
   let pool = due.concat(rest);
   if(size !== 'all') pool = pool.slice(0, Math.min(parseInt(size, 10), pool.length));
+  if(trainPrefs.shuffle){
+    for(let i = pool.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+  }
   return pool.map(e => ({ id: e.id, direction: pickDirection() }));
 }
 function pickDirection(){
@@ -807,7 +916,8 @@ function pickDirection(){
 
 function startSession(){
   const queue = buildSessionQueue(trainPrefs.size);
-  session = { queue, index: 0, correct: 0, almost: 0, wrong: 0, total: queue.length, requeued: {} };
+  session = { queue, index: 0, tally: {again:0,hard:0,good:0,easy:0}, total: queue.length, requeued: {} };
+  shuffleBtn.classList.toggle('active', trainPrefs.shuffle);
   trainSetup.hidden = true;
   trainSummaryEl.hidden = true;
   trainSessionEl.hidden = false;
@@ -822,7 +932,9 @@ function currentEntry(){
 }
 
 function showCard(){
-  trainFeedback.hidden = true;
+  flashReveal.hidden = true;
+  ratingRow.hidden = true;
+  trainAnswerForm.hidden = false;
   trainAnswerInput.value = '';
   trainAnswerInput.disabled = false;
 
@@ -836,7 +948,6 @@ function showCard(){
 
   if(direction === 'ko-en'){
     flashTag.textContent = '한국어 → english';
-    flashPrompt.className = 'flash-prompt';
     flashPrompt.style.fontFamily = "'Noto Sans KR', sans-serif";
     flashPrompt.textContent = entry.korean;
     flashSub.textContent = entry.romanized || '';
@@ -859,15 +970,43 @@ trainAnswerForm.addEventListener('submit', (e) => {
   const isKorean = direction === 'en-ko';
   const correctRaw = isKorean ? entry.korean : entry.meaning;
   const verdict = gradeAnswer(trainAnswerInput.value, correctRaw, isKorean);
+  const suggested = VERDICT_TO_RATING[verdict];
 
-  applySrsResult(entry, verdict);
+  bumpDaily();
+  bumpStreak();
+
+  // reveal answer inside the card
+  revealAnswer.textContent = isKorean ? `${entry.korean}  ·  ${entry.romanized}` : entry.meaning;
+  revealAnswer.style.fontFamily = isKorean ? "'Noto Sans KR', sans-serif" : "'Inter', sans-serif";
+  revealNote.textContent = verdict === 'correct' ? 'you had it right'
+    : verdict === 'almost' ? 'close — small typo, but close enough'
+    : `you typed: "${trainAnswerInput.value.trim() || '(nothing)'}"`;
+  flashReveal.hidden = false;
+
+  trainAnswerForm.hidden = true;
+  ratingRow.hidden = false;
+  ratingRow.querySelectorAll('.rating-btn').forEach(b => {
+    b.classList.toggle('suggested', b.dataset.rating === suggested);
+  });
+
+  // stash for the rating click handler
+  ratingRow.dataset.entryId = entry.id;
+  ratingRow.dataset.direction = direction;
+});
+
+ratingRow.addEventListener('click', (e) => {
+  const btn = e.target.closest('.rating-btn');
+  if(!btn) return;
+  const rating = btn.dataset.rating;
+  const cur = currentEntry();
+  if(!cur) return;
+  const { entry, direction } = cur;
+
+  applySrsRating(entry, rating);
   saveEntries(entries);
+  session.tally[rating]++;
 
-  if(verdict === 'correct') session.correct++;
-  else if(verdict === 'almost') session.almost++;
-  else session.wrong++;
-
-  if(verdict === 'wrong'){
+  if(rating === 'again'){
     const key = session.queue[session.index].id;
     const timesRequeued = session.requeued[key] || 0;
     if(timesRequeued < 1){
@@ -877,25 +1016,6 @@ trainAnswerForm.addEventListener('submit', (e) => {
     }
   }
 
-  trainAnswerInput.disabled = true;
-  trainFeedback.hidden = false;
-  feedbackVerdict.className = 'feedback-verdict ' + verdict;
-  feedbackVerdict.textContent = verdict === 'correct' ? 'nice, correct'
-    : verdict === 'almost' ? 'close enough — small typo'
-    : 'not quite';
-
-  if(verdict === 'correct'){
-    feedbackAnswer.innerHTML = '';
-  }else{
-    feedbackAnswer.innerHTML = isKorean
-      ? `correct answer: <span class="ko">${escapeHtml(entry.korean)}</span> (${escapeHtml(entry.romanized)})`
-      : `correct answer: <strong>${escapeHtml(entry.meaning)}</strong>`;
-  }
-
-  continueBtn.focus();
-});
-
-continueBtn.addEventListener('click', () => {
   session.index++;
   showCard();
 });
@@ -903,10 +1023,11 @@ continueBtn.addEventListener('click', () => {
 function finishSession(){
   trainSessionEl.hidden = true;
   trainSummaryEl.hidden = false;
-  const attempted = session.correct + session.almost + session.wrong;
-  const pct = attempted ? Math.round(((session.correct + session.almost) / attempted) * 100) : 0;
+  const t = session.tally;
+  const attempted = t.again + t.hard + t.good + t.easy;
+  const pct = attempted ? Math.round(((t.good + t.easy) / attempted) * 100) : 0;
   summaryHeadline.textContent = pct >= 80 ? 'solid run 🌱' : pct >= 50 ? 'decent, keep going' : 'rough one — that\'s fine';
-  summarySub.textContent = `${session.correct} correct · ${session.almost} close · ${session.wrong} missed`;
+  summarySub.textContent = `${t.good} good · ${t.easy} easy · ${t.hard} hard · ${t.again} missed`;
   updateDueDot();
 }
 
@@ -915,5 +1036,7 @@ trainAgainBtn.addEventListener('click', () => { resetTrainSetupView(); });
 
 /* ===================== init ===================== */
 updateDueDot();
+renderStreak();
+renderDaily();
 renderChips();
 renderLog();

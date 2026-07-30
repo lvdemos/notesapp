@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#FCFBF8">
+<meta name="theme-color" content="#0B0D12">
 <title>단어장 · Word Log</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
@@ -34,13 +34,29 @@
     </div>
   </header>
 
+  <div class="streak-row">
+    <div class="streak-badge" id="streakBadge">
+      <span class="streak-flame">🔥</span>
+      <span class="streak-count" id="streakCount">0</span>
+      <span class="streak-label">day streak</span>
+    </div>
+  </div>
+
   <nav class="tabbar">
-    <button class="tab active" id="tabLogBtn" data-tab="log">your log</button>
+    <button class="tab active" id="tabLogBtn" data-tab="log">Log</button>
     <button class="tab" id="tabTrainBtn" data-tab="train">
-      train
+      Train
       <span class="due-dot" id="dueDot" hidden></span>
     </button>
   </nav>
+
+  <div class="daily-progress">
+    <div class="daily-progress-top">
+      <span>today's practice</span>
+      <span id="dailyProgressText">0 / 10</span>
+    </div>
+    <div class="daily-progress-bar"><div class="daily-progress-fill" id="dailyProgressFill"></div></div>
+  </div>
 
   <section id="logView">
     <section class="add-panel">
@@ -101,15 +117,27 @@
     </div>
 
     <div class="train-session" id="trainSession" hidden>
-      <div class="train-progress-row">
-        <div class="train-progress-bar"><div class="train-progress-fill" id="trainProgressFill"></div></div>
-        <span class="train-progress-text" id="trainProgressText">1 / 10</span>
+      <div class="train-session-head">
+        <div class="train-progress-row">
+          <div class="train-progress-bar"><div class="train-progress-fill" id="trainProgressFill"></div></div>
+          <span class="train-progress-text" id="trainProgressText">1 / 10</span>
+        </div>
+        <button class="shuffle-btn" id="shuffleBtn" title="shuffle order" aria-label="shuffle order">
+          <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 6h4l9 12h3M4 18h4l3-4M17 6h3M15 4l5 2-5 2M15 20l5-2-5-2" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          shuffle
+        </button>
       </div>
 
       <div class="flash-card" id="flashCard">
         <span class="flash-tag" id="flashTag">한국어 → english</span>
         <p class="flash-prompt" id="flashPrompt">안녕하세요</p>
         <p class="flash-sub" id="flashSub"></p>
+
+        <div class="flash-reveal" id="flashReveal" hidden>
+          <div class="flash-divider"></div>
+          <p class="reveal-answer" id="revealAnswer"></p>
+          <p class="reveal-note" id="revealNote"></p>
+        </div>
       </div>
 
       <form class="train-answer-row" id="trainAnswerForm">
@@ -119,10 +147,23 @@
         </button>
       </form>
 
-      <div class="train-feedback" id="trainFeedback" hidden>
-        <p class="feedback-verdict" id="feedbackVerdict"></p>
-        <p class="feedback-answer" id="feedbackAnswer"></p>
-        <button class="btn-continue" id="continueBtn">continue</button>
+      <div class="rating-row" id="ratingRow" hidden>
+        <button class="rating-btn" data-rating="again">
+          <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0013.9 3M18.5 9a8 8 0 00-13.9-3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          <span>Again</span><small>다시</small>
+        </button>
+        <button class="rating-btn" data-rating="hard">
+          <svg viewBox="0 0 24 24" width="17" height="17"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 15s1.5-2 4-2 4 2 4 2M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Hard</span><small>어려워요</small>
+        </button>
+        <button class="rating-btn" data-rating="good">
+          <svg viewBox="0 0 24 24" width="17" height="17"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Good</span><small>좋아요</small>
+        </button>
+        <button class="rating-btn" data-rating="easy">
+          <svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 2l2.4 6.8L21 11l-6.6 2.2L12 20l-2.4-6.8L3 11l6.6-2.2z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg>
+          <span>Easy</span><small>쉬워요</small>
+        </button>
       </div>
     </div>
 
@@ -173,6 +214,16 @@
         <button data-val="oldest">oldest</button>
         <button data-val="az">가나다</button>
         <button data-val="category">category</button>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <span class="setting-label">daily goal (cards)</span>
+      <div class="segmented" id="goalSegment" data-value="10">
+        <button data-val="5">5</button>
+        <button data-val="10" class="active">10</button>
+        <button data-val="20">20</button>
+        <button data-val="30">30</button>
       </div>
     </div>
 
