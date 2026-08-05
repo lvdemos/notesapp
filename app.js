@@ -810,7 +810,7 @@ function findMediaUrl(node){
 
 function debugGifIssue(msg, detail){
   console.warn(`[word gif] ${msg}`, detail ?? '');
-  showToast(`gif debug: ${msg}`, 5000);
+  showToast(`gif debug: ${msg}`, 8000);
 }
 
 // a stable per-device id — klipy's docs require customer_id on the search
@@ -832,7 +832,7 @@ async function fetchWordGif(query){
     const res = await fetch(url);
     if(!res.ok){
       const body = await res.text().catch(() => '');
-      debugGifIssue(`request failed (${res.status})`, body);
+      debugGifIssue(`${res.status}: ${body.slice(0, 160) || '(empty body)'}`, body);
       return null;
     }
     const data = await res.json();
