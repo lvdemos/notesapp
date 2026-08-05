@@ -601,6 +601,11 @@ const sortSegment      = document.getElementById('sortSegment');
 const goalSegment      = document.getElementById('goalSegment');
 const clearAllBtn      = document.getElementById('clearAllBtn');
 const gifKeyInput      = document.getElementById('gifKeyInput');
+const gifKeyStatus     = document.getElementById('gifKeyStatus');
+
+function renderGifKeyStatus(){
+  gifKeyStatus.textContent = settings.gifApiKey ? '✓ key saved on this device' : 'no key saved yet';
+}
 
 function openSettings(){
   settingsOverlay.hidden = false;
@@ -609,6 +614,7 @@ function openSettings(){
   syncSegment(sortSegment, settings.sort);
   syncSegment(goalSegment, String(settings.dailyGoal));
   gifKeyInput.value = settings.gifApiKey || '';
+  renderGifKeyStatus();
 }
 function closeSettings(){
   settingsOverlay.hidden = true;
@@ -649,9 +655,10 @@ goalSegment.addEventListener('click', (e) => {
   renderDaily();
 });
 
-gifKeyInput.addEventListener('change', () => {
+gifKeyInput.addEventListener('input', () => {
   settings.gifApiKey = gifKeyInput.value.trim();
   saveSettings();
+  renderGifKeyStatus();
 });
 
 clearAllBtn.addEventListener('click', () => {
