@@ -411,6 +411,9 @@ select.cat-select{
   opacity:0; pointer-events:none;
   transition: all .25s ease;
   z-index:50;
+  max-width: calc(100vw - 40px);
+  text-align:center;
+  word-break: break-word;
   box-shadow: 0 8px 24px rgba(60,59,55,.25);
 }
 .toast.show{

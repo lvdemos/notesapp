@@ -178,11 +178,11 @@ const shareSelectedBtn= document.getElementById('shareSelectedBtn');
 
 /* ===================== toast ===================== */
 let toastTimer;
-function showToast(msg){
+function showToast(msg, duration){
   toastEl.textContent = msg;
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), duration || 2200);
 }
 
 /* ===================== chips ===================== */
@@ -800,13 +800,19 @@ function findMediaUrl(node){
   return null;
 }
 
+function debugGifIssue(msg, detail){
+  console.warn(`[word gif] ${msg}`, detail ?? '');
+  showToast(`gif debug: ${msg}`, 5000);
+}
+
 async function fetchWordGif(query){
   if(!settings.gifApiKey || !query) return null;
   const url = `https://api.klipy.com/api/v1/${encodeURIComponent(settings.gifApiKey)}/gifs/search?q=${encodeURIComponent(query)}&per_page=8&rating=g`;
   try{
     const res = await fetch(url);
     if(!res.ok){
-      console.warn(`[word gif] request failed: ${res.status} ${res.statusText}`, await res.text().catch(() => ''));
+      const body = await res.text().catch(() => '');
+      debugGifIssue(`request failed (${res.status})`, body);
       return null;
     }
     const data = await res.json();
@@ -815,10 +821,10 @@ async function fetchWordGif(query){
       const found = findMediaUrl(item.file || item.files || item.media || item);
       if(found) return found;
     }
-    console.warn('[word gif] got a response but could not find an image/video url in it — raw response:', data);
+    debugGifIssue('no usable url found in response', data);
     return null;
   }catch(e){
-    console.warn('[word gif] fetch threw (likely CORS or network) —', e);
+    debugGifIssue('fetch threw (likely CORS or network)', e.message || e);
     return null;
   }
 }
