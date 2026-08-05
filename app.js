@@ -802,18 +802,25 @@ function findMediaUrl(node){
 
 async function fetchWordGif(query){
   if(!settings.gifApiKey || !query) return null;
+  const url = `https://api.klipy.com/api/v1/${encodeURIComponent(settings.gifApiKey)}/gifs/search?q=${encodeURIComponent(query)}&per_page=8&rating=g`;
   try{
-    const url = `https://api.klipy.com/api/v1/${encodeURIComponent(settings.gifApiKey)}/gifs/search?q=${encodeURIComponent(query)}&per_page=8&rating=g`;
     const res = await fetch(url);
-    if(!res.ok) return null;
+    if(!res.ok){
+      console.warn(`[word gif] request failed: ${res.status} ${res.statusText}`, await res.text().catch(() => ''));
+      return null;
+    }
     const data = await res.json();
     const results = data?.data?.data || data?.data || data?.results || [];
     for(const item of Array.isArray(results) ? results : []){
       const found = findMediaUrl(item.file || item.files || item.media || item);
       if(found) return found;
     }
+    console.warn('[word gif] got a response but could not find an image/video url in it — raw response:', data);
     return null;
-  }catch(e){ return null; }
+  }catch(e){
+    console.warn('[word gif] fetch threw (likely CORS or network) —', e);
+    return null;
+  }
 }
 
 /* ===================== training session ===================== */
