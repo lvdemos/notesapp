@@ -780,11 +780,12 @@ function renderDaily(){
 }
 
 /* ===================== word gifs (klipy) ===================== */
-// Tenor's API was fully shut down by Google on 2026-06-30, so this uses Klipy
-// (the community-recommended replacement — WhatsApp/Discord/Bluesky all migrated
-// to it). Klipy's exact response schema isn't fully confirmed here, so instead of
-// hardcoding a guessed field path, we walk the JSON and grab the first thing that
-// looks like an image/video URL — resilient to minor shape differences.
+// Tenor's API was fully shut down by Google on 2026-06-30, so this uses Klipy —
+// which was built as a drop-in Tenor replacement: same base shape, /v2/search,
+// key as a query param, and results[].media_formats.<format>.url in the response.
+// Still walking the JSON generically below rather than hardcoding one exact field
+// path, since minor format-key differences (tinygif vs gif vs mediumgif) shouldn't
+// break the feature.
 function findMediaUrl(node){
   if(!node) return null;
   if(typeof node === 'string'){
@@ -814,7 +815,7 @@ function debugGifIssue(msg, detail){
 
 async function fetchWordGif(query){
   if(!settings.gifApiKey || !query) return null;
-  const url = `https://api.klipy.com/api/v1/${encodeURIComponent(settings.gifApiKey)}/gifs/search?q=${encodeURIComponent(query)}&per_page=8&rating=g`;
+  const url = `https://api.klipy.com/v2/search?key=${encodeURIComponent(settings.gifApiKey)}&q=${encodeURIComponent(query)}&limit=8&media_filter=tinygif,gif`;
   try{
     const res = await fetch(url);
     if(!res.ok){
@@ -823,9 +824,9 @@ async function fetchWordGif(query){
       return null;
     }
     const data = await res.json();
-    const results = data?.data?.data || data?.data || data?.results || [];
+    const results = data?.results || data?.data?.data || data?.data || [];
     for(const item of Array.isArray(results) ? results : []){
-      const found = findMediaUrl(item.file || item.files || item.media || item);
+      const found = findMediaUrl(item.media_formats || item.file || item.files || item.media || item);
       if(found) return found;
     }
     debugGifIssue('no usable url found in response', data);
