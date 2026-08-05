@@ -515,6 +515,7 @@ select.cat-select{
   margin:9px 2px 0; line-height:1.5;
 }
 .setting-note a{ color: var(--accent); font-weight:600; text-decoration:none; }
+.setting-note.warn{ color: var(--danger); font-weight:600; }
 .setting-note a:hover{ text-decoration:underline; }
 
 .setting-row-buttons{ display:flex; gap:8px; }

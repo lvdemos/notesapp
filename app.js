@@ -604,7 +604,19 @@ const gifKeyInput      = document.getElementById('gifKeyInput');
 const gifKeyStatus     = document.getElementById('gifKeyStatus');
 
 function renderGifKeyStatus(){
-  gifKeyStatus.textContent = settings.gifApiKey ? '✓ key saved on this device' : 'no key saved yet';
+  const key = settings.gifApiKey;
+  if(!key){
+    gifKeyStatus.textContent = 'no key saved yet';
+    gifKeyStatus.classList.remove('warn');
+    return;
+  }
+  // mobile autocorrect/autocapitalize can silently swap characters for
+  // similar-looking ones (e.g. Cyrillic В for B) — a real key should be plain ASCII.
+  const looksMangled = /[^\x20-\x7E]/.test(key);
+  gifKeyStatus.textContent = looksMangled
+    ? '⚠ this key has unusual characters — your keyboard likely altered it. clear the field and re-paste.'
+    : '✓ key saved on this device';
+  gifKeyStatus.classList.toggle('warn', looksMangled);
 }
 
 function openSettings(){
