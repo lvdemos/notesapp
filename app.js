@@ -26,7 +26,7 @@ function migrateSrs(){
 
 /* ===================== settings ===================== */
 const SETTINGS_KEY = 'koWordLog.settings.v1';
-const DEFAULT_SETTINGS = {theme:'auto', sort:'newest', dailyGoal:10, tenorKey:''};
+const DEFAULT_SETTINGS = {theme:'auto', sort:'newest', dailyGoal:10, gifApiKey:''};
 function loadSettings(){
   try{
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -600,7 +600,7 @@ const themeSegment     = document.getElementById('themeSegment');
 const sortSegment      = document.getElementById('sortSegment');
 const goalSegment      = document.getElementById('goalSegment');
 const clearAllBtn      = document.getElementById('clearAllBtn');
-const tenorKeyInput    = document.getElementById('tenorKeyInput');
+const gifKeyInput      = document.getElementById('gifKeyInput');
 
 function openSettings(){
   settingsOverlay.hidden = false;
@@ -608,7 +608,7 @@ function openSettings(){
   syncSegment(themeSegment, settings.theme);
   syncSegment(sortSegment, settings.sort);
   syncSegment(goalSegment, String(settings.dailyGoal));
-  tenorKeyInput.value = settings.tenorKey || '';
+  gifKeyInput.value = settings.gifApiKey || '';
 }
 function closeSettings(){
   settingsOverlay.hidden = true;
@@ -649,8 +649,8 @@ goalSegment.addEventListener('click', (e) => {
   renderDaily();
 });
 
-tenorKeyInput.addEventListener('change', () => {
-  settings.tenorKey = tenorKeyInput.value.trim();
+gifKeyInput.addEventListener('change', () => {
+  settings.gifApiKey = gifKeyInput.value.trim();
   saveSettings();
 });
 
@@ -772,16 +772,47 @@ function renderDaily(){
   dailyProgressText.textContent = `${daily.count} / ${goal}`;
 }
 
-/* ===================== word gifs (tenor) ===================== */
+/* ===================== word gifs (klipy) ===================== */
+// Tenor's API was fully shut down by Google on 2026-06-30, so this uses Klipy
+// (the community-recommended replacement — WhatsApp/Discord/Bluesky all migrated
+// to it). Klipy's exact response schema isn't fully confirmed here, so instead of
+// hardcoding a guessed field path, we walk the JSON and grab the first thing that
+// looks like an image/video URL — resilient to minor shape differences.
+function findMediaUrl(node){
+  if(!node) return null;
+  if(typeof node === 'string'){
+    return /^https?:\/\/\S+\.(gif|webp|mp4)(\?\S*)?$/i.test(node) ? node : null;
+  }
+  if(Array.isArray(node)){
+    for(const item of node){
+      const found = findMediaUrl(item);
+      if(found) return found;
+    }
+    return null;
+  }
+  if(typeof node === 'object'){
+    if(typeof node.url === 'string' && findMediaUrl(node.url)) return node.url;
+    for(const key of Object.keys(node)){
+      const found = findMediaUrl(node[key]);
+      if(found) return found;
+    }
+  }
+  return null;
+}
+
 async function fetchWordGif(query){
-  if(!settings.tenorKey || !query) return null;
+  if(!settings.gifApiKey || !query) return null;
   try{
-    const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${encodeURIComponent(settings.tenorKey)}&limit=1&contentfilter=high&media_filter=gif&random=true`;
+    const url = `https://api.klipy.com/api/v1/${encodeURIComponent(settings.gifApiKey)}/gifs/search?q=${encodeURIComponent(query)}&per_page=8&rating=g`;
     const res = await fetch(url);
     if(!res.ok) return null;
     const data = await res.json();
-    const formats = data?.results?.[0]?.media_formats;
-    return formats?.tinygif?.url || formats?.gif?.url || null;
+    const results = data?.data?.data || data?.data || data?.results || [];
+    for(const item of Array.isArray(results) ? results : []){
+      const found = findMediaUrl(item.file || item.files || item.media || item);
+      if(found) return found;
+    }
+    return null;
   }catch(e){ return null; }
 }
 
