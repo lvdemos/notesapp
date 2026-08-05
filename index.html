@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Inter:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -129,6 +129,7 @@
       </div>
 
       <div class="flash-card" id="flashCard">
+        <button class="hint-btn" id="hintBtn" type="button" title="reveal the answer" aria-label="reveal the answer">?</button>
         <span class="flash-tag" id="flashTag">한국어 → english</span>
         <p class="flash-prompt" id="flashPrompt">안녕하세요</p>
         <p class="flash-sub" id="flashSub"></p>
@@ -137,7 +138,12 @@
           <div class="flash-divider"></div>
           <p class="reveal-answer" id="revealAnswer"></p>
           <p class="reveal-note" id="revealNote"></p>
+          <div class="answer-gif" id="answerGif" hidden>
+            <img id="answerGifImg" alt="">
+          </div>
         </div>
+
+        <div class="feedback-burst" id="feedbackBurst" hidden></div>
       </div>
 
       <form class="train-answer-row" id="trainAnswerForm">
@@ -148,21 +154,13 @@
       </form>
 
       <div class="rating-row" id="ratingRow" hidden>
-        <button class="rating-btn" data-rating="again">
-          <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a8 8 0 0013.9 3M18.5 9a8 8 0 00-13.9-3" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
-          <span>Again</span><small>다시</small>
+        <button class="rating-btn wrong-btn" data-rating="wrong" type="button">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>
+          <span>not quite</span>
         </button>
-        <button class="rating-btn" data-rating="hard">
-          <svg viewBox="0 0 24 24" width="17" height="17"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 15s1.5-2 4-2 4 2 4 2M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <span>Hard</span><small>어려워요</small>
-        </button>
-        <button class="rating-btn" data-rating="good">
-          <svg viewBox="0 0 24 24" width="17" height="17"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <span>Good</span><small>좋아요</small>
-        </button>
-        <button class="rating-btn" data-rating="easy">
-          <svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 2l2.4 6.8L21 11l-6.6 2.2L12 20l-2.4-6.8L3 11l6.6-2.2z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg>
-          <span>Easy</span><small>쉬워요</small>
+        <button class="rating-btn correct-btn" data-rating="correct" type="button">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 12.5l5.5 5.5L20 6.5" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>got it</span>
         </button>
       </div>
     </div>
@@ -225,6 +223,14 @@
         <button data-val="20">20</button>
         <button data-val="30">30</button>
       </div>
+    </div>
+
+    <div class="setting-block">
+      <span class="setting-label">word gifs</span>
+      <div class="gif-key-row">
+        <input type="text" id="tenorKeyInput" placeholder="paste a free Tenor API key" autocomplete="off" spellcheck="false">
+      </div>
+      <p class="setting-note">shows a gif of the word when you reveal an answer while training. get a free key at <a href="https://developers.google.com/tenor/guides/quickstart" target="_blank" rel="noopener">developers.google.com/tenor</a> — when creating it, leave it unrestricted (no HTTP referrer) since this app runs from a local file. stored only on this device.</p>
     </div>
 
     <div class="setting-block">

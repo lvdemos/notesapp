@@ -26,11 +26,12 @@ function migrateSrs(){
 
 /* ===================== settings ===================== */
 const SETTINGS_KEY = 'koWordLog.settings.v1';
+const DEFAULT_SETTINGS = {theme:'auto', sort:'newest', dailyGoal:10, tenorKey:''};
 function loadSettings(){
   try{
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? {...{theme:'auto', sort:'newest', dailyGoal:10}, ...JSON.parse(raw)} : {theme:'auto', sort:'newest', dailyGoal:10};
-  }catch(e){ return {theme:'auto', sort:'newest', dailyGoal:10}; }
+    return raw ? {...DEFAULT_SETTINGS, ...JSON.parse(raw)} : {...DEFAULT_SETTINGS};
+  }catch(e){ return {...DEFAULT_SETTINGS}; }
 }
 function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
 let settings = loadSettings();
@@ -599,6 +600,7 @@ const themeSegment     = document.getElementById('themeSegment');
 const sortSegment      = document.getElementById('sortSegment');
 const goalSegment      = document.getElementById('goalSegment');
 const clearAllBtn      = document.getElementById('clearAllBtn');
+const tenorKeyInput    = document.getElementById('tenorKeyInput');
 
 function openSettings(){
   settingsOverlay.hidden = false;
@@ -606,6 +608,7 @@ function openSettings(){
   syncSegment(themeSegment, settings.theme);
   syncSegment(sortSegment, settings.sort);
   syncSegment(goalSegment, String(settings.dailyGoal));
+  tenorKeyInput.value = settings.tenorKey || '';
 }
 function closeSettings(){
   settingsOverlay.hidden = true;
@@ -644,6 +647,11 @@ goalSegment.addEventListener('click', (e) => {
   saveSettings();
   syncSegment(goalSegment, String(settings.dailyGoal));
   renderDaily();
+});
+
+tenorKeyInput.addEventListener('change', () => {
+  settings.tenorKey = tenorKeyInput.value.trim();
+  saveSettings();
 });
 
 clearAllBtn.addEventListener('click', () => {
@@ -685,82 +693,25 @@ function updateDueDot(){
   dueDot.hidden = countDue() === 0;
 }
 
-/* ===================== grading helpers ===================== */
-function normalizeEn(str){
-  return str.toLowerCase().trim().replace(/[.,!?;:'"()]/g, '').replace(/\s+/g, ' ');
-}
-function normalizeKo(str){
-  return str.trim().replace(/\s+/g, '');
-}
-function levenshtein(a, b){
-  const m = a.length, n = b.length;
-  if(m === 0) return n;
-  if(n === 0) return m;
-  const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
-  for(let i=0;i<=m;i++) dp[i][0] = i;
-  for(let j=0;j<=n;j++) dp[0][j] = j;
-  for(let i=1;i<=m;i++){
-    for(let j=1;j<=n;j++){
-      dp[i][j] = a[i-1] === b[j-1]
-        ? dp[i-1][j-1]
-        : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
-    }
-  }
-  return dp[m][n];
-}
-function gradeAnswer(userRaw, correctRaw, isKorean){
-  if(!userRaw.trim()) return 'wrong';
-  if(isKorean){
-    const user = normalizeKo(userRaw);
-    const correct = normalizeKo(correctRaw);
-    if(user === correct) return 'correct';
-    if(levenshtein(user, correct) <= 1) return 'almost';
-    return 'wrong';
-  }else{
-    const user = normalizeEn(userRaw);
-    const variants = correctRaw.split(/[\/,;]/).map(normalizeEn).filter(Boolean);
-    if(variants.includes(user)) return 'correct';
-    let bestDist = Infinity;
-    variants.forEach(v => { bestDist = Math.min(bestDist, levenshtein(user, v)); });
-    const shortest = Math.min(...variants.map(v => v.length));
-    const threshold = shortest <= 4 ? 1 : Math.floor(shortest / 5) + 1;
-    if(bestDist <= threshold) return 'almost';
-    return 'wrong';
-  }
-}
-
-/* ===================== spaced repetition (anki-style ratings) ===================== */
+/* ===================== spaced repetition ===================== */
+// grading here is self-reported (you know best whether you got it) rather than
+// string-matched — free-form answers have too many valid phrasings to auto-grade fairly.
 const BOX_INTERVALS = [0, 86400000, 3*86400000, 7*86400000, 16*86400000, 30*86400000];
 const MAX_BOX = BOX_INTERVALS.length - 1;
 
 function applySrsRating(entry, rating){
   entry.srs = entry.srs || { box:0, dueAt: Date.now(), correct:0, wrong:0 };
   const now = Date.now();
-  switch(rating){
-    case 'again':
-      entry.srs.box = 0;
-      entry.srs.dueAt = now;
-      entry.srs.wrong++;
-      break;
-    case 'hard':
-      entry.srs.box = Math.max(entry.srs.box, 1);
-      entry.srs.dueAt = now + Math.max(BOX_INTERVALS[entry.srs.box] * 0.5, 4*3600000);
-      entry.srs.correct++;
-      break;
-    case 'easy':
-      entry.srs.box = Math.min(entry.srs.box + 2, MAX_BOX);
-      entry.srs.dueAt = now + BOX_INTERVALS[entry.srs.box] * 1.3;
-      entry.srs.correct++;
-      break;
-    case 'good':
-    default:
-      entry.srs.box = Math.min(entry.srs.box + 1, MAX_BOX);
-      entry.srs.dueAt = now + BOX_INTERVALS[entry.srs.box];
-      entry.srs.correct++;
+  if(rating === 'wrong'){
+    entry.srs.box = 0;
+    entry.srs.dueAt = now;
+    entry.srs.wrong++;
+  }else{
+    entry.srs.box = Math.min(entry.srs.box + 1, MAX_BOX);
+    entry.srs.dueAt = now + BOX_INTERVALS[entry.srs.box];
+    entry.srs.correct++;
   }
 }
-// verdict from typed-answer grading -> suggested rating
-const VERDICT_TO_RATING = { correct: 'good', almost: 'hard', wrong: 'again' };
 
 /* ===================== streak ===================== */
 const STREAK_KEY = 'koWordLog.streak.v1';
@@ -821,6 +772,19 @@ function renderDaily(){
   dailyProgressText.textContent = `${daily.count} / ${goal}`;
 }
 
+/* ===================== word gifs (tenor) ===================== */
+async function fetchWordGif(query){
+  if(!settings.tenorKey || !query) return null;
+  try{
+    const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${encodeURIComponent(settings.tenorKey)}&limit=1&contentfilter=high&media_filter=gif&random=true`;
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const formats = data?.results?.[0]?.media_formats;
+    return formats?.tinygif?.url || formats?.gif?.url || null;
+  }catch(e){ return null; }
+}
+
 /* ===================== training session ===================== */
 const trainSetup       = document.getElementById('trainSetup');
 const trainSessionEl   = document.getElementById('trainSession');
@@ -833,12 +797,17 @@ const startTrainBtn    = document.getElementById('startTrainBtn');
 const trainProgressFill= document.getElementById('trainProgressFill');
 const trainProgressText= document.getElementById('trainProgressText');
 const shuffleBtn       = document.getElementById('shuffleBtn');
+const flashCard        = document.getElementById('flashCard');
 const flashTag         = document.getElementById('flashTag');
 const flashPrompt      = document.getElementById('flashPrompt');
 const flashSub         = document.getElementById('flashSub');
 const flashReveal      = document.getElementById('flashReveal');
 const revealAnswer     = document.getElementById('revealAnswer');
 const revealNote       = document.getElementById('revealNote');
+const answerGif        = document.getElementById('answerGif');
+const answerGifImg     = document.getElementById('answerGifImg');
+const hintBtn          = document.getElementById('hintBtn');
+const feedbackBurst    = document.getElementById('feedbackBurst');
 const trainAnswerForm  = document.getElementById('trainAnswerForm');
 const trainAnswerInput = document.getElementById('trainAnswerInput');
 const ratingRow        = document.getElementById('ratingRow');
@@ -848,7 +817,7 @@ const backToLogBtn     = document.getElementById('backToLogBtn');
 const trainAgainBtn    = document.getElementById('trainAgainBtn');
 
 let trainPrefs = { dir: 'mixed', size: '10', shuffle: false };
-let session = null; // { queue:[{id,direction}], index, tally:{again,hard,good,easy}, total, requeued }
+let session = null; // { queue:[{id,direction}], index, tally:{correct,wrong}, total, requeued }
 
 function resetTrainSetupView(){
   trainSetup.hidden = false;
@@ -916,7 +885,7 @@ function pickDirection(){
 
 function startSession(){
   const queue = buildSessionQueue(trainPrefs.size);
-  session = { queue, index: 0, tally: {again:0,hard:0,good:0,easy:0}, total: queue.length, requeued: {} };
+  session = { queue, index: 0, tally: {correct:0,wrong:0}, total: queue.length, requeued: {} };
   shuffleBtn.classList.toggle('active', trainPrefs.shuffle);
   trainSetup.hidden = true;
   trainSummaryEl.hidden = true;
@@ -937,6 +906,12 @@ function showCard(){
   trainAnswerForm.hidden = false;
   trainAnswerInput.value = '';
   trainAnswerInput.disabled = false;
+  hintBtn.hidden = false;
+  feedbackBurst.hidden = true;
+  flashCard.classList.remove('shake');
+  ratingRow.style.pointerEvents = '';
+  answerGif.hidden = true;
+  answerGifImg.src = '';
 
   const cur = currentEntry();
   if(!cur){ finishSession(); return; }
@@ -962,51 +937,78 @@ function showCard(){
   setTimeout(() => trainAnswerInput.focus(), 50);
 }
 
-trainAnswerForm.addEventListener('submit', (e) => {
-  e.preventDefault();
+// reveal the answer without judging it — free-form phrasing has too many valid
+// answers to auto-grade reliably, so you decide for yourself with the check/x buttons.
+function revealCard(){
   const cur = currentEntry();
   if(!cur) return;
   const { entry, direction } = cur;
   const isKorean = direction === 'en-ko';
-  const correctRaw = isKorean ? entry.korean : entry.meaning;
-  const verdict = gradeAnswer(trainAnswerInput.value, correctRaw, isKorean);
-  const suggested = VERDICT_TO_RATING[verdict];
+  const typed = trainAnswerInput.value.trim();
 
   bumpDaily();
   bumpStreak();
 
-  // reveal answer inside the card
   revealAnswer.textContent = isKorean ? `${entry.korean}  ·  ${entry.romanized}` : entry.meaning;
   revealAnswer.style.fontFamily = isKorean ? "'Noto Sans KR', sans-serif" : "'Inter', sans-serif";
-  revealNote.textContent = verdict === 'correct' ? 'you had it right'
-    : verdict === 'almost' ? 'close — small typo, but close enough'
-    : `you typed: "${trainAnswerInput.value.trim() || '(nothing)'}"`;
+  revealNote.textContent = typed ? `you typed: "${typed}"` : '';
   flashReveal.hidden = false;
 
   trainAnswerForm.hidden = true;
+  hintBtn.hidden = true;
   ratingRow.hidden = false;
-  ratingRow.querySelectorAll('.rating-btn').forEach(b => {
-    b.classList.toggle('suggested', b.dataset.rating === suggested);
-  });
 
-  // stash for the rating click handler
   ratingRow.dataset.entryId = entry.id;
   ratingRow.dataset.direction = direction;
+
+  answerGif.hidden = true;
+  answerGifImg.src = '';
+  const gifQuery = (entry.meaning || entry.korean).split(/[\/,;]/)[0].trim();
+  fetchWordGif(gifQuery).then(gifUrl => {
+    // the session may have already moved to a different card by the time this resolves
+    if(gifUrl && ratingRow.dataset.entryId === entry.id){
+      answerGifImg.src = gifUrl;
+      answerGifImg.alt = gifQuery;
+      answerGif.hidden = false;
+    }
+  });
+}
+
+trainAnswerForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  revealCard();
 });
+hintBtn.addEventListener('click', revealCard);
+
+function playFeedback(rating){
+  const isCorrect = rating === 'correct';
+  feedbackBurst.className = 'feedback-burst ' + (isCorrect ? 'correct' : 'wrong');
+  feedbackBurst.innerHTML = isCorrect
+    ? '<svg viewBox="0 0 24 24" width="68" height="68"><path d="M4 12.5l5.5 5.5L20 6.5" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="68" height="68"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/></svg>';
+  feedbackBurst.hidden = false;
+  if(!isCorrect){
+    flashCard.classList.remove('shake');
+    void flashCard.offsetWidth;
+    flashCard.classList.add('shake');
+  }
+}
 
 ratingRow.addEventListener('click', (e) => {
   const btn = e.target.closest('.rating-btn');
   if(!btn) return;
-  const rating = btn.dataset.rating;
+  const rating = btn.dataset.rating; // 'correct' | 'wrong'
   const cur = currentEntry();
   if(!cur) return;
   const { entry, direction } = cur;
 
+  ratingRow.style.pointerEvents = 'none';
   applySrsRating(entry, rating);
   saveEntries(entries);
   session.tally[rating]++;
+  playFeedback(rating);
 
-  if(rating === 'again'){
+  if(rating === 'wrong'){
     const key = session.queue[session.index].id;
     const timesRequeued = session.requeued[key] || 0;
     if(timesRequeued < 1){
@@ -1016,18 +1018,20 @@ ratingRow.addEventListener('click', (e) => {
     }
   }
 
-  session.index++;
-  showCard();
+  setTimeout(() => {
+    session.index++;
+    showCard();
+  }, 480);
 });
 
 function finishSession(){
   trainSessionEl.hidden = true;
   trainSummaryEl.hidden = false;
   const t = session.tally;
-  const attempted = t.again + t.hard + t.good + t.easy;
-  const pct = attempted ? Math.round(((t.good + t.easy) / attempted) * 100) : 0;
-  summaryHeadline.textContent = pct >= 80 ? 'solid run 🌱' : pct >= 50 ? 'decent, keep going' : 'rough one — that\'s fine';
-  summarySub.textContent = `${t.good} good · ${t.easy} easy · ${t.hard} hard · ${t.again} missed`;
+  const attempted = t.correct + t.wrong;
+  const pct = attempted ? Math.round((t.correct / attempted) * 100) : 0;
+  summaryHeadline.textContent = pct >= 80 ? 'excellent run' : pct >= 50 ? 'good progress' : 'keep at it';
+  summarySub.textContent = `${t.correct} correct · ${t.wrong} missed`;
   updateDueDot();
 }
 
