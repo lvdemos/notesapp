@@ -780,12 +780,12 @@ function renderDaily(){
 }
 
 /* ===================== word gifs (klipy) ===================== */
-// Tenor's API was fully shut down by Google on 2026-06-30, so this uses Klipy —
-// which was built as a drop-in Tenor replacement: same base shape, /v2/search,
-// key as a query param, and results[].media_formats.<format>.url in the response.
-// Still walking the JSON generically below rather than hardcoding one exact field
-// path, since minor format-key differences (tinygif vs gif vs mediumgif) shouldn't
-// break the feature.
+// Tenor's API was fully shut down by Google on 2026-06-30, so this uses Klipy's
+// native GIF Search endpoint (per docs.klipy.com/getting-started):
+// api.klipy.com/api/v1/{app_key}/gifs/search?q=&customer_id=&page=&per_page=
+// The exact response field names aren't fully confirmed, so instead of hardcoding
+// one guessed path, we walk the JSON and grab the first thing that looks like an
+// image/video URL — resilient to whatever the real shape turns out to be.
 function findMediaUrl(node){
   if(!node) return null;
   if(typeof node === 'string'){
@@ -813,9 +813,21 @@ function debugGifIssue(msg, detail){
   showToast(`gif debug: ${msg}`, 5000);
 }
 
+// a stable per-device id — klipy's docs require customer_id on the search
+// endpoint even for a single-user personal app like this one.
+function getGifCustomerId(){
+  let id = localStorage.getItem('koWordLog.gifCustomerId');
+  if(!id){
+    id = 'wl-' + Math.random().toString(36).slice(2, 12);
+    localStorage.setItem('koWordLog.gifCustomerId', id);
+  }
+  return id;
+}
+
 async function fetchWordGif(query){
   if(!settings.gifApiKey || !query) return null;
-  const url = `https://api.klipy.com/v2/search?key=${encodeURIComponent(settings.gifApiKey)}&q=${encodeURIComponent(query)}&limit=8&media_filter=tinygif,gif`;
+  const params = new URLSearchParams({ q: query, page: '1', per_page: '8', customer_id: getGifCustomerId() });
+  const url = `https://api.klipy.com/api/v1/${encodeURIComponent(settings.gifApiKey)}/gifs/search?${params}`;
   try{
     const res = await fetch(url);
     if(!res.ok){
@@ -824,7 +836,7 @@ async function fetchWordGif(query){
       return null;
     }
     const data = await res.json();
-    const results = data?.results || data?.data?.data || data?.data || [];
+    const results = data?.data?.data || data?.data || data?.results || [];
     for(const item of Array.isArray(results) ? results : []){
       const found = findMediaUrl(item.media_formats || item.file || item.files || item.media || item);
       if(found) return found;
