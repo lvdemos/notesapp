@@ -758,12 +758,13 @@ select.cat-select{
   border-radius:14px;
   overflow:hidden;
   background: var(--surface-2);
-  max-height:170px;
+  max-height:220px;
+  display:flex; align-items:center; justify-content:center;
   animation: rise .25s ease;
 }
 .answer-gif img{
-  width:100%; max-height:170px;
-  object-fit:cover;
+  width:100%; max-height:220px;
+  object-fit:contain;
   display:block;
 }
 
