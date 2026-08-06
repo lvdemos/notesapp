@@ -12,18 +12,27 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<picture>
+  <source media="(min-width: 900px)" srcset="blob-scene-haikei-pc.svg">
+  <img class="bg-decor bg-decor-blob" src="blob-scene-haikei.svg" alt="" aria-hidden="true">
+</picture>
+<picture>
+  <source media="(min-width: 900px)" srcset="layered-waves-haikei-pc.svg">
+  <img class="bg-decor bg-decor-wave" src="layered-waves-haikei.svg" alt="" aria-hidden="true">
+</picture>
+<div class="bg-grain" aria-hidden="true"></div>
+<img class="bg-mascot" src="daneo3.png" alt="" aria-hidden="true">
 
 <div class="app">
 
   <header class="topbar">
     <div class="brand">
-      <span class="brand-dot"></span>
-      <h1>단어장</h1>
-      <span class="brand-sub">word log</span>
+      <img class="brand-logo" src="logo2.png" alt="단어장 word log">
     </div>
     <div class="topbar-actions">
       <button class="icon-btn settings-toggle" id="settingsBtn" title="settings" aria-label="settings">
@@ -54,7 +63,7 @@
 
   <div class="daily-progress">
     <div class="daily-progress-top">
-      <span>today's practice</span>
+      <span class="daily-progress-label">today's practice</span>
       <span id="dailyProgressText">0 / 10</span>
     </div>
     <div class="daily-progress-bar"><div class="daily-progress-fill" id="dailyProgressFill"></div></div>
@@ -140,8 +149,14 @@
           <div class="flash-divider"></div>
           <p class="reveal-answer" id="revealAnswer"></p>
           <p class="reveal-note" id="revealNote"></p>
-          <div class="answer-gif" id="answerGif" hidden>
-            <img id="answerGifImg" alt="">
+          <div class="answer-media">
+            <div class="answer-gif" id="answerGif" hidden>
+              <img id="answerGifImg" alt="">
+            </div>
+            <div class="answer-example" id="answerExample" hidden>
+              <p class="example-ko" id="exampleKo"></p>
+              <p class="example-en" id="exampleEn"></p>
+            </div>
           </div>
         </div>
 
@@ -234,6 +249,15 @@
       </div>
       <p class="setting-note" id="gifKeyStatus"></p>
       <p class="setting-note">shows a gif of the word when you reveal an answer while training. get a free key at <a href="https://klipy.com/developers" target="_blank" rel="noopener">klipy.com/developers</a> (tenor's api was shut down by google in 2026, klipy is its replacement). stored only on this device.</p>
+    </div>
+
+    <div class="setting-block">
+      <span class="setting-label">example sentences</span>
+      <div class="gif-key-row">
+        <input type="text" id="krdictKeyInput" placeholder="paste a free KRDict API key (optional)" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off">
+      </div>
+      <p class="setting-note" id="krdictKeyStatus"></p>
+      <p class="setting-note">shows an example sentence next to the gif when you reveal an answer. works out of the box using Tatoeba (no key needed) — add a free KRDict key at <a href="https://krdict.korean.go.kr/eng/openApi/openApiRegister" target="_blank" rel="noopener">krdict.korean.go.kr</a> as a backup source for words Tatoeba doesn't have. stored only on this device.</p>
     </div>
 
     <div class="setting-block">

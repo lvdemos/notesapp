@@ -26,7 +26,7 @@ function migrateSrs(){
 
 /* ===================== settings ===================== */
 const SETTINGS_KEY = 'koWordLog.settings.v1';
-const DEFAULT_SETTINGS = {theme:'auto', sort:'newest', dailyGoal:10, gifApiKey:''};
+const DEFAULT_SETTINGS = {theme:'auto', sort:'newest', dailyGoal:10, gifApiKey:'', krdictApiKey:''};
 function loadSettings(){
   try{
     const raw = localStorage.getItem(SETTINGS_KEY);
@@ -602,6 +602,8 @@ const goalSegment      = document.getElementById('goalSegment');
 const clearAllBtn      = document.getElementById('clearAllBtn');
 const gifKeyInput      = document.getElementById('gifKeyInput');
 const gifKeyStatus     = document.getElementById('gifKeyStatus');
+const krdictKeyInput   = document.getElementById('krdictKeyInput');
+const krdictKeyStatus  = document.getElementById('krdictKeyStatus');
 
 function renderGifKeyStatus(){
   const key = settings.gifApiKey;
@@ -619,6 +621,20 @@ function renderGifKeyStatus(){
   gifKeyStatus.classList.toggle('warn', looksMangled);
 }
 
+function renderKrdictKeyStatus(){
+  const key = settings.krdictApiKey;
+  if(!key){
+    krdictKeyStatus.textContent = 'no key saved — example sentences will use tatoeba only';
+    krdictKeyStatus.classList.remove('warn');
+    return;
+  }
+  const looksMangled = /[^\x20-\x7E]/.test(key);
+  krdictKeyStatus.textContent = looksMangled
+    ? '⚠ this key has unusual characters — your keyboard likely altered it. clear the field and re-paste.'
+    : '✓ key saved on this device';
+  krdictKeyStatus.classList.toggle('warn', looksMangled);
+}
+
 function openSettings(){
   settingsOverlay.hidden = false;
   settingsBtn.classList.add('active');
@@ -627,6 +643,8 @@ function openSettings(){
   syncSegment(goalSegment, String(settings.dailyGoal));
   gifKeyInput.value = settings.gifApiKey || '';
   renderGifKeyStatus();
+  krdictKeyInput.value = settings.krdictApiKey || '';
+  renderKrdictKeyStatus();
 }
 function closeSettings(){
   settingsOverlay.hidden = true;
@@ -671,6 +689,12 @@ gifKeyInput.addEventListener('input', () => {
   settings.gifApiKey = gifKeyInput.value.trim();
   saveSettings();
   renderGifKeyStatus();
+});
+
+krdictKeyInput.addEventListener('input', () => {
+  settings.krdictApiKey = krdictKeyInput.value.trim();
+  saveSettings();
+  renderKrdictKeyStatus();
 });
 
 clearAllBtn.addEventListener('click', () => {
@@ -861,6 +885,93 @@ async function fetchWordGif(query){
   }
 }
 
+/* ===================== example sentences (tatoeba + krdict) ===================== */
+// Tatoeba is tried first: no key needed, and it returns a matched KO/EN pair
+// directly (docs.tatoeba.org — the old api_v0 is deprecated, this uses the
+// current api.tatoeba.org/unstable/sentences endpoint, CORS-open).
+// KRDict is the fallback: its example search only returns Korean text (no
+// per-example translation field exists in its schema), so we run that Korean
+// sentence through the same translate() helper used for word entries.
+async function fetchTatoebaExample(word){
+  const params = new URLSearchParams({ lang: 'kor', q: word, sort: 'relevance', limit: '8' });
+  params.set('trans:lang', 'eng');
+  const url = `https://api.tatoeba.org/unstable/sentences?${params}`;
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const items = Array.isArray(data?.data) ? data.data : [];
+    for(const item of items){
+      const ko = item?.text;
+      if(!ko || !ko.includes(word)) continue;
+      const tr = (item.translations || []).find(t => t.lang === 'eng' && t.text);
+      if(tr) return { ko, en: tr.text };
+    }
+    return null;
+  }catch(e){
+    console.warn('[example] tatoeba fetch failed', e.message || e);
+    return null;
+  }
+}
+
+async function fetchKrdictExample(word){
+  if(!settings.krdictApiKey) return null;
+  const params = new URLSearchParams({ key: settings.krdictApiKey, q: word, part: 'exam', method: 'exact', num: '5' });
+  const url = `https://krdict.korean.go.kr/api/search?${params}`;
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const xmlText = await res.text();
+    const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if(xml.querySelector('parsererror')) return null;
+    if(xml.getElementsByTagName('error').length){
+      console.warn('[example] krdict error', xml.getElementsByTagName('message')[0]?.textContent);
+      return null;
+    }
+    const exampleEls = xml.getElementsByTagName('example');
+    for(const el of exampleEls){
+      const ko = el.textContent && el.textContent.trim();
+      if(ko){
+        const en = await translate(ko, 'ko', 'en');
+        return { ko, en: en || '' };
+      }
+    }
+    return null;
+  }catch(e){
+    console.warn('[example] krdict fetch failed', e.message || e);
+    return null;
+  }
+}
+
+async function fetchExampleSentence(word){
+  if(!word) return null;
+  const fromTatoeba = await fetchTatoebaExample(word);
+  if(fromTatoeba) return fromTatoeba;
+  return fetchKrdictExample(word);
+}
+
+function highlightSpan(text, needle){
+  if(!needle) return escapeHtml(text || '');
+  const idx = text.indexOf(needle);
+  if(idx === -1) return escapeHtml(text);
+  return escapeHtml(text.slice(0, idx)) + '<mark>' + escapeHtml(text.slice(idx, idx + needle.length)) + '</mark>' + escapeHtml(text.slice(idx + needle.length));
+}
+
+function highlightEnglish(text, meaning){
+  if(!meaning) return escapeHtml(text || '');
+  const lower = text.toLowerCase();
+  const meaningLower = meaning.toLowerCase().trim();
+  let idx = lower.indexOf(meaningLower);
+  let len = meaningLower.length;
+  if(idx === -1){
+    const firstWord = meaningLower.split(/\s+/)[0].replace(/[^a-z]/g, '');
+    idx = firstWord ? lower.indexOf(firstWord) : -1;
+    len = firstWord ? firstWord.length : 0;
+  }
+  if(idx === -1) return escapeHtml(text);
+  return escapeHtml(text.slice(0, idx)) + '<mark>' + escapeHtml(text.slice(idx, idx + len)) + '</mark>' + escapeHtml(text.slice(idx + len));
+}
+
 /* ===================== training session ===================== */
 const trainSetup       = document.getElementById('trainSetup');
 const trainSessionEl   = document.getElementById('trainSession');
@@ -882,6 +993,9 @@ const revealAnswer     = document.getElementById('revealAnswer');
 const revealNote       = document.getElementById('revealNote');
 const answerGif        = document.getElementById('answerGif');
 const answerGifImg     = document.getElementById('answerGifImg');
+const answerExample    = document.getElementById('answerExample');
+const exampleKo        = document.getElementById('exampleKo');
+const exampleEn        = document.getElementById('exampleEn');
 const hintBtn          = document.getElementById('hintBtn');
 const feedbackBurst    = document.getElementById('feedbackBurst');
 const trainAnswerForm  = document.getElementById('trainAnswerForm');
@@ -988,6 +1102,9 @@ function showCard(){
   ratingRow.style.pointerEvents = '';
   answerGif.hidden = true;
   answerGifImg.src = '';
+  answerExample.hidden = true;
+  exampleKo.innerHTML = '';
+  exampleEn.innerHTML = '';
 
   const cur = currentEntry();
   if(!cur){ finishSession(); return; }
@@ -1046,6 +1163,18 @@ function revealCard(){
       answerGifImg.src = gifUrl;
       answerGifImg.alt = gifQuery;
       answerGif.hidden = false;
+    }
+  });
+
+  answerExample.hidden = true;
+  exampleKo.innerHTML = '';
+  exampleEn.innerHTML = '';
+  fetchExampleSentence(entry.korean).then(ex => {
+    // the session may have already moved to a different card by the time this resolves
+    if(ex && ratingRow.dataset.entryId === entry.id){
+      exampleKo.innerHTML = highlightSpan(ex.ko, entry.korean);
+      exampleEn.innerHTML = ex.en ? highlightEnglish(ex.en, entry.meaning) : '';
+      answerExample.hidden = false;
     }
   });
 }
