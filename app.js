@@ -127,13 +127,28 @@ const CATEGORY_KEYWORDS = {
   'work & study': ['work','job','study','school','homework','meeting','office','class','test','exam','teacher','student','project']
 };
 
+// word-boundary matching, not substring — plain .includes() was matching
+// "one" inside "money" and miscategorizing it as numbers instead of shopping
+const CATEGORY_PATTERNS = Object.fromEntries(
+  Object.entries(CATEGORY_KEYWORDS).map(([cat, words]) => {
+    const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return [cat, new RegExp('\\b(' + escaped.join('|') + ')\\b', 'gi')];
+  })
+);
+
 function autoCategorize(meaningText){
   if(!meaningText) return 'other';
-  const lower = meaningText.toLowerCase();
-  for(const [cat, words] of Object.entries(CATEGORY_KEYWORDS)){
-    if(words.some(w => lower.includes(w))) return cat;
+  let bestCat = 'other';
+  let bestScore = 0;
+  for(const [cat, pattern] of Object.entries(CATEGORY_PATTERNS)){
+    const matches = meaningText.match(pattern);
+    const score = matches ? matches.length : 0;
+    if(score > bestScore){
+      bestScore = score;
+      bestCat = cat;
+    }
   }
-  return 'other';
+  return bestCat;
 }
 
 /* ===================== translation (best-effort, client-side, no key) ===================== */

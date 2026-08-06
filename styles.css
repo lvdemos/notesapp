@@ -339,9 +339,9 @@ input.ko{ font-family:'Noto Sans KR', sans-serif; }
 
 .empty-state{
   text-align:center; padding:56px 20px;
-  color: var(--text-faint);
+  color: rgba(255,255,255,.75);
 }
-.empty-state p{ font-size:15px; color:var(--text-dim); margin:0 0 4px; font-weight:600; }
+.empty-state p{ font-size:15px; color:#FFFFFF; margin:0 0 4px; font-weight:600; }
 .empty-state span{ font-size:12.5px; }
 
 .entry{
